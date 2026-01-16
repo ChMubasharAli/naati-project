@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Lock, Eye, EyeOff, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import apiClient from "../../api/axios";
 
 const ResetPassword = () => {
-  const Navigate = useNavigate();
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,27 +43,29 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/v1/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          otp: formData.otp,
-          newPassword: formData.newPassword,
-        }),
+      const response = await apiClient.post(`/api/v1/auth/reset-password`, {
+        email,
+        otp: formData.otp,
+        newPassword: formData.newPassword,
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         localStorage.removeItem("resetEmail");
         toast.success("Password reset successful!");
-        Navigate("/login");
+        navigate("/login");
       } else {
-        setError(data.message || "Password reset failed");
+        setError(response.data.message || "Password reset failed");
       }
-    } catch (err) {
-      setError("Something went wrong. Please try again.");
+    } catch (error) {
+      console.error(error);
+
+      if (error.response) {
+        setError(error.response.data?.message || "Invalid OTP or email");
+      } else if (error.request) {
+        setError("Network error. Please check your connection.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

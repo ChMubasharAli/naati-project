@@ -22,12 +22,14 @@ import Users from "./(pages)/admin/Users";
 import ResetPassword from "./components/auth/ResetPassword";
 import Contact from "./components/contact-us/Contact";
 import ScrollToTop from "./components/ScrollToTop";
-import Courses from "./components/naati-course/Courses";
+import Courses from "./components/subscriptions/Subscriptions";
 import PracticeDialogue from "./(pages)/user/PracticeDialogue";
 import ShowAllDomans from "./(pages)/user/ShowAllDialogues";
 import ShowAllDialogues from "./(pages)/user/ShowAllDialogues";
 import RapidReview from "./(pages)/user/rapid-review/RapidReview";
 import ShowAllRapidDialogues from "./(pages)/user/rapid-review/ShowAllRapidDialogues";
+import PaymentSuccess from "./components/stripe-pages/PaymentSuccess";
+import PaymentFailure from "./components/stripe-pages/PaymentFailure";
 
 export default function App() {
   return (
@@ -35,6 +37,7 @@ export default function App() {
       <ScrollToTop />
       <Routes>
         {/* Public Routes  */}
+
         <Route
           path="/"
           element={
@@ -53,7 +56,7 @@ export default function App() {
           }
         />
         <Route
-          path="/naati-course"
+          path="/subscriptions"
           element={
             <LoginProtectedRoute>
               <Courses />
@@ -124,8 +127,13 @@ export default function App() {
             <Route path="practice-dialogue" element={<PracticeDialogue />} />
             <Route path="rapid-review" element={<ShowAllRapidDialogues />} />
             <Route path="rapid-review-dialogues" element={<RapidReview />} />
+            <Route path="subscriptions" element={<Courses />} />
           </Route>
         </Route>
+
+        {/* Stripe payment routes success and failure  */}
+        <Route path="/success" element={<PaymentSuccess />} />
+        <Route path="/failure" element={<PaymentFailure />} />
 
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFound />} />

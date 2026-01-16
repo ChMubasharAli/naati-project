@@ -12,14 +12,12 @@ import { queryClient } from "./lib/react-query.js";
 import { AuthProvider } from "./context/AuthContext.jsx";
 
 createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <MantineProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </QueryClientProvider>
-      <ToastContainer />
-    </MantineProvider>
-  </StrictMode>
+  <MantineProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </QueryClientProvider>
+    <ToastContainer />
+  </MantineProvider>
 );

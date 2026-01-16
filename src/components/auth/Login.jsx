@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import apiClient from "../../api/axios";
+
 const Login = () => {
-  // get login function form the useAuth
   const { login } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -20,22 +21,11 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const response = await apiClient.post("/api/v1/auth/login", formData);
 
-      if (!response.ok) {
-        throw new Error("Invalid email or password");
-      }
+      if (response.data.success) {
+        const { user, token } = response.data.data;
 
-      const data = await response.json();
-
-      if (data.success) {
-        const { user, token } = data.data;
-
-        // Store auth data
         login(user, token);
 
         if (user.isVerified && user.role === "user") {
@@ -47,11 +37,18 @@ const Login = () => {
           navigate("/verify-otp");
         }
       } else {
-        setError(data.message || "Login failed");
+        setError(response.data.message || "Login failed");
       }
     } catch (error) {
       console.error(error);
-      setError(error.message || "Something went wrong. Please try again.");
+
+      if (error.response) {
+        setError(error.response.data?.message || "Invalid email or password");
+      } else if (error.request) {
+        setError("Network error. Please check your connection.");
+      } else {
+        setError(error.message || "Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -65,7 +62,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen relative  bg-slate-950 text-white font-sans antialiased flex items-center justify-center px-6 py-20 overflow-hidden">
+    <div className="min-h-screen relative bg-slate-950 text-white font-sans antialiased flex items-center justify-center px-6 py-20 overflow-hidden">
       <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px); }

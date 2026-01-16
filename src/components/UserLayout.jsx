@@ -4,7 +4,7 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import Header from "./Header";
 
-import { Home, MessageSquare, Users, Zap } from "lucide-react";
+import { CreditCard, Home, MessageSquare, Users, Zap } from "lucide-react";
 
 export default function UserLayout() {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,6 +21,8 @@ export default function UserLayout() {
     },
 
     { name: "Rapid Review", icon: Zap, href: "rapid-review" },
+
+    { name: "Buy Subscriptions", icon: CreditCard, href: "subscriptions" },
   ];
 
   return (
@@ -34,7 +36,7 @@ export default function UserLayout() {
       />
       {/* Main Content */}
       <div className={`flex-1 flex flex-col px-4 overflow-auto bg-gray-100`}>
-        <div className=" sticky top-0 left-0 py-2 z-40 rounded-2xl bg-gray-100">
+        <div className=" sticky top-0 left-0 py-2 z-40 rounded-2xl ">
           <Header
             setIsOpen={setIsOpen}
             isOpen={isOpen}

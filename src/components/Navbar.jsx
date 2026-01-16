@@ -42,10 +42,10 @@ const Navbar = () => {
               Mock Test
             </Link>
             <Link
-              to="/naati-course"
+              to="/subscriptions"
               className="text-slate-300 hover:text-emerald-400 transition-colors font-medium text-sm lg:text-base px-2 py-1"
             >
-              Naati Course
+              Subscriptions
             </Link>
             <Link
               to="/contact-us"

@@ -19,7 +19,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
   return (
     <>
       {/* Mobile Version */}
-      <div className="flex md:hidden">
+      <div className="flex lg:hidden">
         {isOpen && (
           <div
             className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40"
@@ -28,7 +28,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
         )}
 
         <div
-          className={`fixed top-0 right-0 h-screen overflow-auto w-full max-w-sm bg-slate-900 flex flex-col transform transition-transform duration-300 ease-in-out z-50 shadow-2xl border-l border-white/10 ${
+          className={`fixed top-0 right-0 h-screen overflow-auto w-full max-w-md bg-slate-900 flex flex-col transform transition-transform duration-300 ease-in-out z-50 shadow-2xl border-l border-white/10 ${
             isOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -121,7 +121,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
       </div>
 
       {/* Desktop Version */}
-      <div className="w-64 bg-slate-900 md:flex hidden flex-col  shadow-2xl relative z-10 border-r border-white/10">
+      <div className="w-64 bg-slate-900 lg:flex hidden flex-col  shadow-2xl relative z-10 border-r border-white/10">
         {/* Desktop Logo */}
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">

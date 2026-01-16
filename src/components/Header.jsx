@@ -16,7 +16,7 @@ export default function Header({ setIsOpen, activeItem }) {
         {/* Mobile Menu Button */}
         <button
           onClick={() => setIsOpen(true)}
-          className="text-slate-400 md:hidden block hover:text-emerald-400 transition-all duration-200 p-2 rounded-xl hover:bg-white/5 border border-white/10"
+          className="text-slate-400 lg:hidden block hover:text-emerald-400 transition-all duration-200 p-2 rounded-xl hover:bg-white/5 border border-white/10"
         >
           <Menu size={20} />
         </button>
