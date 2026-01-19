@@ -29,7 +29,7 @@ const Navbar = () => {
             >
               Home
             </Link>
-            <Link
+            {/* <Link
               to="/practice"
               className="text-slate-300 hover:text-emerald-400 transition-colors font-medium text-sm lg:text-base px-2 py-1"
             >
@@ -40,7 +40,7 @@ const Navbar = () => {
               className="text-slate-300 hover:text-emerald-400 transition-colors font-medium text-sm lg:text-base px-2 py-1"
             >
               Mock Test
-            </Link>
+            </Link> */}
             <Link
               to="/subscriptions"
               className="text-slate-300 hover:text-emerald-400 transition-colors font-medium text-sm lg:text-base px-2 py-1"

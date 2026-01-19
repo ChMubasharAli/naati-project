@@ -95,7 +95,7 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen relative bg-slate-950 text-white font-sans antialiased flex items-center justify-center px-6 py-20 overflow-hidden">
+    <div className="min-h-screen relative bg-slate-950 text-white  antialiased flex items-center justify-center px-6 py-20 overflow-hidden">
       {/* {JSON.stringify(languagesResponse, null, 2)} */}
       <style>{`
         @keyframes float {

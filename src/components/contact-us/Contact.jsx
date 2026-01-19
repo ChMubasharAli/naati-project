@@ -5,7 +5,7 @@ import Footer from "../Footer";
 
 const Contact = () => {
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans antialiased">
+    <div className="min-h-screen bg-slate-950 text-white antialiased">
       <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px); }

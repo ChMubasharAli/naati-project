@@ -71,4 +71,9 @@ export const queryKeys = {
     list: () => [...queryKeys.users.all, "list"],
     detail: (id) => [...queryKeys.users.all, "detail", id],
   },
+  transactions: {
+    all: ["transactions"],
+    list: () => [...queryKeys.transactions.all, "list"],
+    detail: (id) => [...queryKeys.transactions.all, "detail", id],
+  },
 };

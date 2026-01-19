@@ -104,7 +104,7 @@ const Subscriptions = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50/50 text-gray-900 font-sans antialiased">
+      <div className="min-h-screen bg-gray-50/50 text-gray-900  antialiased">
         <div className="py-24 px-6">
           <div className="container mx-auto max-w-7xl">
             {!user && (
@@ -130,7 +130,7 @@ const Subscriptions = () => {
 
             <div
               className={`grid grid-cols-1 md:grid-cols-2 ${
-                user.id ? "lg:grid-cols-2 xl:grid-cols-3 " : "lg:grid-cols-3"
+                user?.id ? "lg:grid-cols-2 xl:grid-cols-3 " : "lg:grid-cols-3"
               } gap-8 mb-24 items-end`}
             >
               {courses.map((course) => (

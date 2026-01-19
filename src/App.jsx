@@ -30,6 +30,8 @@ import RapidReview from "./(pages)/user/rapid-review/RapidReview";
 import ShowAllRapidDialogues from "./(pages)/user/rapid-review/ShowAllRapidDialogues";
 import PaymentSuccess from "./components/stripe-pages/PaymentSuccess";
 import PaymentFailure from "./components/stripe-pages/PaymentFailure";
+import SubscriptionsManagement from "./(pages)/admin/Subscriptions";
+import TransactionsManagement from "./(pages)/admin/Transections";
 
 export default function App() {
   return (
@@ -115,6 +117,8 @@ export default function App() {
             <Route path="dialogues" element={<Dialogues />} />
             <Route path="segments" element={<Segments />} />
             <Route path="users" element={<Users />} />
+            <Route path="subscriptions" element={<SubscriptionsManagement />} />
+            <Route path="transactions" element={<TransactionsManagement />} />
           </Route>
         </Route>
 

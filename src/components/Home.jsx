@@ -60,7 +60,7 @@ const Home = ({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans antialiased">
+    <div className="min-h-screen bg-slate-950 text-white  antialiased">
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(30px); }
@@ -82,7 +82,7 @@ const Home = ({
         .animate-float { animation: float 6s ease-in-out infinite; }
         .animate-glow { animation: glow 3s ease-in-out infinite; }
         .animate-shimmer {
-          background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+          background: linear-linear(to right, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
           background-size: 1000px 100%;
           animation: shimmer 3s infinite;
         }
@@ -96,13 +96,13 @@ const Home = ({
         <div
           className="absolute inset-0 opacity-20"
           style={{
-            backgroundImage: `linear-gradient(rgba(16, 185, 129, 0.1) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px)`,
+            backgroundImage: `linear-linear(rgba(16, 185, 129, 0.1) 1px, transparent 1px),
+                           linear-linear(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px)`,
             backgroundSize: "50px 50px",
           }}
         ></div>
 
-        {/* Animated Gradient Orbs */}
+        {/* Animated linear Orbs */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-[120px] animate-float"></div>
         <div
           className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/20 rounded-full blur-[120px] animate-float"
@@ -122,7 +122,7 @@ const Home = ({
             {/* Main Headline */}
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold leading-[1.1] tracking-tight">
               <span className="block text-white">Ace Your NAATI CCL</span>
-              <span className="block bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent">
+              <span className="block bg-linear-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent">
                 with AI Precision
               </span>
             </h1>
@@ -138,14 +138,17 @@ const Home = ({
             <div className="flex flex-wrap justify-center gap-4 pt-4">
               <button
                 onClick={onStartPractice}
-                className="group relative px-10 py-5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/50"
+                className="group relative px-10 py-5 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/50"
               >
                 <div className="absolute inset-0 animate-shimmer"></div>
-                <span className="relative flex items-center gap-3">
+                <Link
+                  to={"/login"}
+                  className="relative flex items-center gap-3"
+                >
                   <Play size={20} fill="currentColor" />
                   Start Free Practice
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </span>
+                </Link>
               </button>
 
               <button
@@ -206,9 +209,9 @@ const Home = ({
                 key={index}
                 className="group relative p-8 bg-white rounded-3xl border-2 border-slate-200 hover:border-emerald-400 hover:shadow-2xl hover:shadow-emerald-100 transition-all duration-500"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="absolute inset-0 bg-linear-to-br from-emerald-50 to-teal-50 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative">
-                  <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
+                  <div className="w-16 h-16 bg-linear-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-200">
                     <feature.icon className="w-8 h-8 text-white" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900 mb-4">
@@ -254,17 +257,17 @@ const Home = ({
                 ))}
               </div>
 
-              <button
-                onClick={onStartPractice}
-                className="group px-10 py-5 bg-white hover:bg-slate-100 text-slate-900 font-semibold rounded-full transition-all flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105"
+              <Link
+                to={"/login"}
+                className="group w-fit px-10 py-5 bg-white hover:bg-slate-100 text-slate-900 font-semibold rounded-full transition-all flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105"
               >
                 Get Started Now
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              </Link>
             </div>
 
             <div className="space-y-6 ">
-              <div className="relative p-4 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-3xl shadow-2xl shadow-emerald-500/50 overflow-hidden">
+              <div className="relative p-4 bg-linear-to-br from-emerald-500 to-teal-500 rounded-3xl shadow-2xl shadow-emerald-500/50 overflow-hidden">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16"></div>
                 <div className="relative space-y-6">
@@ -343,7 +346,7 @@ const Home = ({
 
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-r from-emerald-400 to-teal-400 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
               <div className="relative aspect-video rounded-3xl overflow-hidden border-4 border-slate-100 shadow-2xl">
                 <iframe
                   src="https://www.youtube.com/embed/CvK2AanVS4Q?autoplay=0&mute=1"
@@ -375,12 +378,12 @@ const Home = ({
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => onNavigateToSection?.("course")}
-                className="px-10 py-5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-full transition-all shadow-lg shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-300"
+              <Link
+                to="/subscriptions"
+                className="px-10 py-5 inline-block bg-linear-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-full transition-all shadow-lg shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-300"
               >
-                Explore Full Course
-              </button>
+                Explore Plans
+              </Link>
             </div>
           </div>
         </div>
@@ -420,13 +423,16 @@ const Home = ({
             <div className="flex flex-wrap justify-center gap-4 pt-6">
               <button
                 onClick={onStartPractice}
-                className="group relative px-14 py-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xl font-bold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/50"
+                className="group relative px-14 py-6 bg-linear-to-r from-emerald-500 to-teal-500 text-white text-xl font-bold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/50"
               >
                 <div className="absolute inset-0 animate-shimmer"></div>
-                <span className="relative flex items-center gap-3">
+                <Link
+                  to={"/login"}
+                  className="relative flex items-center gap-3"
+                >
                   Start Free Practice
                   <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                </span>
+                </Link>
               </button>
 
               <button

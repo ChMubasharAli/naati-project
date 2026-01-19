@@ -319,7 +319,7 @@ const PracticeDialogue = () => {
         formData.append("dialogueId", dialogueId);
         formData.append(
           "language",
-          examData?.dialogue?.Language?.name || languageCode || "English"
+          examData?.dialogue?.Language?.name || languageCode || "English",
         );
         formData.append("segmentId", segmentId);
         formData.append("audioTranscript", currentSegment.textContent);
@@ -327,7 +327,7 @@ const PracticeDialogue = () => {
         formData.append("audioUrl", currentSegment.audioUrl || "");
         formData.append(
           "suggestedAudioUrl",
-          currentSegment.suggestedAudioUrl || ""
+          currentSegment.suggestedAudioUrl || "",
         );
         formData.append("userId", userId);
         formData.append("attemptCount", attemptsCount[segmentId] || 0);
@@ -349,7 +349,7 @@ const PracticeDialogue = () => {
       userId,
       currentSegment,
       attemptsCount,
-    ]
+    ],
   );
 
   // Handle NEXT button click (for all segments except last)
@@ -460,7 +460,9 @@ const PracticeDialogue = () => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
+        <div className="flex justify-center">
+          <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+        </div>
         <p className="text-gray-600 text-center">Loading exam...</p>
       </div>
     );
@@ -506,7 +508,7 @@ const PracticeDialogue = () => {
         </div>
       )}
 
-      <div className="flex flex-col font-sans w-full ">
+      <div className="flex flex-col  w-full ">
         {/* Top Header */}
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 border-b border-gray-200">
           <div className="flex items-center mb-2 sm:mb-0">
@@ -882,7 +884,7 @@ const PracticeDialogue = () => {
                     <p className="text-xl sm:text-2xl font-bold text-emerald-600">
                       {examResult.summary?.averages?.finalScore
                         ? parseFloat(
-                            examResult.summary.averages.finalScore
+                            examResult.summary.averages.finalScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -895,7 +897,7 @@ const PracticeDialogue = () => {
                     <p className="text-xl sm:text-2xl font-bold text-blue-600">
                       {examResult.summary?.averages?.accuracyScore
                         ? parseFloat(
-                            examResult.summary.averages.accuracyScore
+                            examResult.summary.averages.accuracyScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -908,7 +910,7 @@ const PracticeDialogue = () => {
                     <p className="text-xl sm:text-2xl font-bold text-purple-600">
                       {examResult.summary?.averages?.languageQualityScore
                         ? parseFloat(
-                            examResult.summary.averages.languageQualityScore
+                            examResult.summary.averages.languageQualityScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -936,7 +938,7 @@ const PracticeDialogue = () => {
                       {examResult.summary?.averages?.fluencyPronunciationScore
                         ? parseFloat(
                             examResult.summary.averages
-                              .fluencyPronunciationScore
+                              .fluencyPronunciationScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -949,7 +951,7 @@ const PracticeDialogue = () => {
                     <p className="font-semibold text-orange-700 text-sm sm:text-base">
                       {examResult.summary?.averages?.deliveryCoherenceScore
                         ? parseFloat(
-                            examResult.summary.averages.deliveryCoherenceScore
+                            examResult.summary.averages.deliveryCoherenceScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -962,7 +964,7 @@ const PracticeDialogue = () => {
                     <p className="font-semibold text-yellow-700 text-sm sm:text-base">
                       {examResult.summary?.averages?.culturalControlScore
                         ? parseFloat(
-                            examResult.summary.averages.culturalControlScore
+                            examResult.summary.averages.culturalControlScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -975,7 +977,7 @@ const PracticeDialogue = () => {
                     <p className="font-semibold text-red-700 text-sm sm:text-base">
                       {examResult.summary?.averages?.responseManagementScore
                         ? parseFloat(
-                            examResult.summary.averages.responseManagementScore
+                            examResult.summary.averages.responseManagementScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -988,7 +990,7 @@ const PracticeDialogue = () => {
                     <p className="font-semibold text-indigo-700 text-sm sm:text-base">
                       {examResult.summary?.averages?.totalRawScore
                         ? parseFloat(
-                            examResult.summary.averages.totalRawScore
+                            examResult.summary.averages.totalRawScore,
                           ).toFixed(1)
                         : "N/A"}
                     </p>
@@ -1212,7 +1214,9 @@ const PracticeDialogue = () => {
             </div>
           ) : (
             <div className="text-center py-6 sm:py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-500" />
+              <div className="flex justify-center">
+                <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+              </div>
               <p className="mt-2 text-gray-600">Loading results...</p>
             </div>
           )}

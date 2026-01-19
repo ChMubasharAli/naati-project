@@ -30,7 +30,7 @@ const PaymentSuccess = () => {
           "/api/v1/stripe/checkout/verify",
           {
             session_id: sessionId,
-          }
+          },
         );
 
         console.log("Verification response:", response.data);
@@ -47,7 +47,7 @@ const PaymentSuccess = () => {
         setVerificationStatus("failed");
         toast.error(
           error.response?.data?.message ||
-            "Payment verification failed. Please contact support."
+            "Payment verification failed. Please contact support.",
         );
       } finally {
         setLoading(false);
@@ -62,14 +62,10 @@ const PaymentSuccess = () => {
     navigate("/user");
   };
 
-  const handleViewDetails = () => {
-    navigate("/user/subscription");
-  };
-
   // Show loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white font-sans antialiased flex items-center justify-center px-6 py-20">
+      <div className="min-h-screen bg-slate-950 text-white  antialiased flex items-center justify-center px-6 py-20">
         <div
           className="fixed inset-0 opacity-20"
           style={{
@@ -109,7 +105,7 @@ const PaymentSuccess = () => {
   // Show error state
   if (verificationStatus === "failed") {
     return (
-      <div className="min-h-screen bg-slate-950 text-white font-sans antialiased flex items-center justify-center px-6 py-20">
+      <div className="min-h-screen bg-slate-950 text-white  antialiased flex items-center justify-center px-6 py-20">
         <div
           className="fixed inset-0 opacity-20"
           style={{
@@ -157,7 +153,7 @@ const PaymentSuccess = () => {
 
   // Show success state
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans antialiased flex items-center justify-center px-6 py-20">
+    <div className="min-h-screen bg-slate-950 text-white antialiased flex items-center justify-center px-6 py-20">
       <div
         className="fixed inset-0 opacity-20"
         style={{

@@ -10,6 +10,8 @@ import {
   MessageSquare,
   Layers,
   Users,
+  CreditCard,
+  ArrowLeftRight,
 } from "lucide-react";
 
 export default function AdminLayout() {
@@ -30,6 +32,10 @@ export default function AdminLayout() {
     { name: "Segments", icon: Layers, href: "segments" },
 
     { name: "Users", icon: Users, href: "users" },
+
+    { name: "Subscriptions", icon: CreditCard, href: "subscriptions" },
+
+    { name: "Transactions", icon: ArrowLeftRight, href: "transactions" },
   ];
 
   return (

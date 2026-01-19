@@ -26,7 +26,7 @@ const PaymentFailure = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans antialiased flex items-center justify-center px-6 py-20">
+    <div className="min-h-screen bg-slate-950 text-white  antialiased flex items-center justify-center px-6 py-20">
       {/* Background Grid Pattern */}
       <div
         className="fixed inset-0 opacity-20"

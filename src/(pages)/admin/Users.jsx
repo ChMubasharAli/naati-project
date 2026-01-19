@@ -17,17 +17,23 @@ import {
   EyeOff,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 
 // Import API functions
-import { fetchUsers, createUser, updateUser, deleteUser } from "../../api/users";
+import {
+  fetchUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+} from "../../api/users";
 import { showSuccessToast, queryKeys } from "../../lib/react-query";
 
 const UsersManagement = () => {
   const queryClient = useQueryClient();
-  
+
   // State variables
-  // Here is the generic person code that i build for ht scemnatio and will push on the production and then will also inform that to the contractor and then they will ship th ecode to the vetrcel.com 
+  // Here is the generic person code that i build for ht scemnatio and will push on the production and then will also inform that to the contractor and then they will ship th ecode to the vetrcel.com
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create"); // 'create' or 'edit'
@@ -35,7 +41,6 @@ const UsersManagement = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Number of users to show per page
-
 
   // let new3 array = ["hello", ]
 
@@ -74,13 +79,13 @@ const UsersManagement = () => {
     onSuccess: (data) => {
       // Show success toast notification
       showSuccessToast(data.message || "User created successfully!");
-      
+
       // Close modal
       setIsModalOpen(false);
-      
+
       // Reset form
       resetForm();
-      
+
       // Invalidate users query to refetch data
       queryClient.invalidateQueries({ queryKey: queryKeys.users.list() });
     },
@@ -93,13 +98,13 @@ const UsersManagement = () => {
     onSuccess: (data) => {
       // Show success toast notification
       showSuccessToast(data.message || "User updated successfully!");
-      
+
       // Close modal
       setIsModalOpen(false);
-      
+
       // Reset form
       resetForm();
-      
+
       // Invalidate users query to refetch data
       queryClient.invalidateQueries({ queryKey: queryKeys.users.list() });
     },
@@ -112,7 +117,7 @@ const UsersManagement = () => {
     onSuccess: (data) => {
       // Show success toast notification
       showSuccessToast(data.message || "User deleted successfully!");
-      
+
       // Invalidate users query to refetch data
       queryClient.invalidateQueries({ queryKey: queryKeys.users.list() });
     },
@@ -168,7 +173,7 @@ const UsersManagement = () => {
    */
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Prepare user data object
     const userData = {
       name: formData.name,
@@ -213,7 +218,7 @@ const UsersManagement = () => {
     (user) =>
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone.includes(searchTerm)
+      user.phone.includes(searchTerm),
   );
 
   /**
@@ -221,11 +226,11 @@ const UsersManagement = () => {
    */
   const totalFilteredUsers = filteredUsers.length;
   const totalPages = Math.ceil(totalFilteredUsers / itemsPerPage);
-  
+
   // Calculate start and end index for current page
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  
+
   // Get users for current page using slice
   const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
 
@@ -277,7 +282,7 @@ const UsersManagement = () => {
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxPagesToShow = 5;
-    
+
     if (totalPages <= maxPagesToShow) {
       // Show all pages if total pages are less than or equal to maxPagesToShow
       for (let i = 1; i <= totalPages; i++) {
@@ -302,7 +307,7 @@ const UsersManagement = () => {
         }
       }
     }
-    
+
     return pageNumbers;
   };
 
@@ -373,111 +378,127 @@ const UsersManagement = () => {
             {/* Loading State */}
             {usersLoading ? (
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                <td
+                  colSpan="6"
+                  className="px-6 py-12 text-center text-gray-500"
+                >
                   <div className="flex flex-col items-center gap-2">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                    <div className="flex justify-center">
+                      <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                    </div>
                     <p>Loading users...</p>
                   </div>
                 </td>
               </tr>
-            ) : 
-            /* Empty State */
+            ) : /* Empty State */
             paginatedUsers.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                  {searchTerm ? "No users found matching your search" : "No users found"}
+                <td
+                  colSpan="6"
+                  className="px-6 py-12 text-center text-gray-500"
+                >
+                  {searchTerm
+                    ? "No users found matching your search"
+                    : "No users found"}
                 </td>
               </tr>
-            ) : 
-            /* Users List */
-            paginatedUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                {/* User Name and Avatar */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {user.name}
+            ) : (
+              /* Users List */
+              paginatedUsers.map((user) => (
+                <tr
+                  key={user.id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  {/* User Name and Avatar */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        {user.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="text-xs text-gray-500">ID: {user.id}</div>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {user.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ID: {user.id}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                
-                {/* Contact Information */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Mail size={14} className="text-gray-400" />
-                      {user.email}
+                  </td>
+
+                  {/* Contact Information */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <Mail size={14} className="text-gray-400" />
+                        {user.email}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <Phone size={14} className="text-gray-400" />
+                        {user.phone}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Phone size={14} className="text-gray-400" />
-                      {user.phone}
-                    </div>
-                  </div>
-                </td>
-                
-                {/* Preferred Language */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-                    {user.preferredLanguage.toUpperCase()}
-                  </span>
-                </td>
-                
-                {/* Exam Date */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <Calendar size={14} className="text-gray-400" />
-                    {formatDate(user.naatiCclExamDate)}
-                  </div>
-                </td>
-                
-                {/* Verification Status */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {user.isVerified ? (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                      <CheckCircle size={14} />
-                      Verified
+                  </td>
+
+                  {/* Preferred Language */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                      {user.preferredLanguage.toUpperCase()}
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                      <XCircle size={14} />
-                      Unverified
-                    </span>
-                  )}
-                </td>
-                
-                {/* Action Buttons */}
-                <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => handleEdit(user)}
-                      className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                      title="Edit User"
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user.id)}
-                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      title="Delete User"
-                      disabled={deleteMutation.isPending}
-                    >
-                      {deleteMutation.isPending && deleteMutation.variables === user.id ? (
-                        <div className="w-4 h-4 border-2 border-gray-300 border-t-red-600 rounded-full animate-spin"></div>
-                      ) : (
-                        <Trash2 size={18} />
-                      )}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+
+                  {/* Exam Date */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <Calendar size={14} className="text-gray-400" />
+                      {formatDate(user.naatiCclExamDate)}
+                    </div>
+                  </td>
+
+                  {/* Verification Status */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {user.isVerified ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                        <CheckCircle size={14} />
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                        <XCircle size={14} />
+                        Unverified
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Action Buttons */}
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleEdit(user)}
+                        className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                        title="Edit User"
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="Delete User"
+                        disabled={deleteMutation.isPending}
+                      >
+                        {deleteMutation.isPending &&
+                        deleteMutation.variables === user.id ? (
+                          <div className="w-4 h-4 border-2 border-gray-300 border-t-red-600 rounded-full animate-spin"></div>
+                        ) : (
+                          <Trash2 size={18} />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -498,7 +519,7 @@ const UsersManagement = () => {
               </span>
             )}
           </div>
-          
+
           {/* Pagination buttons */}
           <div className="flex items-center gap-2">
             {/* Previous Button */}
@@ -510,7 +531,7 @@ const UsersManagement = () => {
               <ChevronLeft size={16} />
               Previous
             </button>
-            
+
             {/* Page Numbers */}
             <div className="flex items-center gap-1">
               {getPageNumbers().map((pageNum) => (
@@ -526,12 +547,12 @@ const UsersManagement = () => {
                   {pageNum}
                 </button>
               ))}
-              
+
               {/* Show ellipsis if there are more pages after current range */}
               {totalPages > 5 && currentPage < totalPages - 2 && (
                 <span className="px-2 text-gray-500">...</span>
               )}
-              
+
               {/* Show last page if it's not in the current range */}
               {totalPages > 5 && currentPage < totalPages - 2 && (
                 <button
@@ -546,7 +567,7 @@ const UsersManagement = () => {
                 </button>
               )}
             </div>
-            
+
             {/* Next Button */}
             <button
               onClick={handleNextPage}
@@ -599,7 +620,9 @@ const UsersManagement = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="John Doe"
                     required
-                    disabled={createMutation.isPending || updateMutation.isPending}
+                    disabled={
+                      createMutation.isPending || updateMutation.isPending
+                    }
                   />
                 </div>
 
@@ -620,7 +643,11 @@ const UsersManagement = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="user@example.com"
                     required={modalMode === "create"}
-                    disabled={modalMode === "edit" || createMutation.isPending || updateMutation.isPending}
+                    disabled={
+                      modalMode === "edit" ||
+                      createMutation.isPending ||
+                      updateMutation.isPending
+                    }
                   />
                 </div>
               </div>
@@ -644,7 +671,9 @@ const UsersManagement = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="03001234567"
                     required
-                    disabled={createMutation.isPending || updateMutation.isPending}
+                    disabled={
+                      createMutation.isPending || updateMutation.isPending
+                    }
                   />
                 </div>
 
@@ -666,13 +695,17 @@ const UsersManagement = () => {
                       className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       placeholder="••••••••"
                       required={modalMode === "create"}
-                      disabled={createMutation.isPending || updateMutation.isPending}
+                      disabled={
+                        createMutation.isPending || updateMutation.isPending
+                      }
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                      disabled={createMutation.isPending || updateMutation.isPending}
+                      disabled={
+                        createMutation.isPending || updateMutation.isPending
+                      }
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -700,7 +733,9 @@ const UsersManagement = () => {
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
                     required
-                    disabled={createMutation.isPending || updateMutation.isPending}
+                    disabled={
+                      createMutation.isPending || updateMutation.isPending
+                    }
                   >
                     <option value="en">English</option>
                     <option value="ur">Urdu</option>
@@ -727,7 +762,9 @@ const UsersManagement = () => {
                       })
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    disabled={createMutation.isPending || updateMutation.isPending}
+                    disabled={
+                      createMutation.isPending || updateMutation.isPending
+                    }
                   />
                 </div>
               </div>
@@ -742,7 +779,9 @@ const UsersManagement = () => {
                       setFormData({ ...formData, isVerified: e.target.checked })
                     }
                     className="w-5 h-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                    disabled={createMutation.isPending || updateMutation.isPending}
+                    disabled={
+                      createMutation.isPending || updateMutation.isPending
+                    }
                   />
                   <span className="text-sm font-medium text-gray-700">
                     Mark user as verified
@@ -758,14 +797,18 @@ const UsersManagement = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                   className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (

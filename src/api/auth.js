@@ -63,3 +63,17 @@ export const forgotPassword = async (email) => {
     throw new Error(errorMessage);
   }
 };
+
+// Update user
+export const changePassword = async (userId, data) => {
+  try {
+    const response = await apiClient.put(`/api/v1/users/${userId}`, data);
+    return response.data;
+  } catch (error) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to change password";
+    throw new Error(errorMessage);
+  }
+};

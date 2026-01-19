@@ -14,6 +14,7 @@ import {
   Loader2,
   Music,
   FileAudio,
+  RefreshCw,
 } from "lucide-react";
 
 // Import APIs
@@ -255,7 +256,7 @@ const SegmentsManagement = () => {
       .catch((error) => {
         console.error("Error playing audio:", error);
         alert(
-          "Unable to play audio. The file might be corrupted or unsupported."
+          "Unable to play audio. The file might be corrupted or unsupported.",
         );
       });
 
@@ -292,7 +293,7 @@ const SegmentsManagement = () => {
     .filter(
       (segment) =>
         segment.textContent.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (!filterDialogue || segment.dialogueId === parseInt(filterDialogue))
+        (!filterDialogue || segment.dialogueId === parseInt(filterDialogue)),
     )
     .sort((a, b) => a.segmentOrder - b.segmentOrder);
 
@@ -386,7 +387,9 @@ const SegmentsManagement = () => {
                   className="px-6 py-12 text-center text-gray-500"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+                    <div className="flex justify-center">
+                      <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                    </div>
                     <p>Loading segments...</p>
                   </div>
                 </td>
@@ -439,7 +442,7 @@ const SegmentsManagement = () => {
                             handleAudioPlay(
                               segment.audioUrl,
                               segment.id,
-                              "audio"
+                              "audio",
                             )
                           }
                           className={`flex items-center gap-1 px-3 py-1.5 rounded-lg ${
@@ -475,7 +478,7 @@ const SegmentsManagement = () => {
                             handleAudioPlay(
                               segment.suggestedAudioUrl,
                               segment.id,
-                              "suggested"
+                              "suggested",
                             )
                           }
                           className={`flex items-center gap-1 px-3 py-1.5 rounded-lg ${

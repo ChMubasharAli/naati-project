@@ -9,6 +9,7 @@ import {
   Search,
   X,
   Clock,
+  RefreshCw,
 } from "lucide-react";
 
 // Import API functions
@@ -151,7 +152,7 @@ const DialoguesManagement = () => {
   const filteredDialogues = dialogues.filter(
     (dialogue) =>
       dialogue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dialogue.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      dialogue.description?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // Get difficulty badge class
@@ -217,7 +218,9 @@ const DialoguesManagement = () => {
       {/* Loading */}
       {isLoading && (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+          <div className="flex justify-center">
+            <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+          </div>
           <p className="text-gray-500 mt-4">Loading dialogues...</p>
         </div>
       )}
@@ -270,7 +273,7 @@ const DialoguesManagement = () => {
                           </span>
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getDifficultyClass(
-                              dialogue.difficulty
+                              dialogue.difficulty,
                             )}`}
                           >
                             {dialogue.difficulty}

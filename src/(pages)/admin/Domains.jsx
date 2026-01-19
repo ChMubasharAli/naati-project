@@ -1,7 +1,15 @@
 // /components/DomainsManagement.jsx
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, BookOpen, Search, X } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  BookOpen,
+  Search,
+  X,
+  RefreshCw,
+} from "lucide-react";
 
 // Import API functions
 import {
@@ -134,7 +142,7 @@ const DomainsManagement = () => {
   const filteredDomains = domains.filter(
     (domain) =>
       domain.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      domain.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      domain.description?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // Get difficulty badge class
@@ -192,7 +200,9 @@ const DomainsManagement = () => {
       {/* Loading */}
       {isLoading && (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+          <div className="flex justify-center">
+            <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+          </div>
           <p className="text-gray-500 mt-4">Loading domains...</p>
         </div>
       )}
@@ -256,7 +266,7 @@ const DomainsManagement = () => {
                 <div className="flex flex-wrap items-center gap-2 mt-4">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-semibold ${getDifficultyClass(
-                      domain.difficulty
+                      domain.difficulty,
                     )}`}
                   >
                     {domain.difficulty}

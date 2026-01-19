@@ -1,7 +1,7 @@
 // src/components/LanguagesManagement.jsx
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, Globe, Search, X } from "lucide-react";
+import { Plus, Edit, Trash2, Globe, Search, X, RefreshCw } from "lucide-react";
 import { toast } from "react-toastify";
 
 // Import API functions
@@ -255,7 +255,9 @@ const LanguagesManagement = () => {
                   className="px-6 py-12 text-center text-gray-500"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+                    <div className="flex justify-center">
+                      <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                    </div>
                     <p>Loading languages...</p>
                   </div>
                 </td>
