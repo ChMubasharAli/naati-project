@@ -54,6 +54,7 @@ export const LoginProtectedRoute = ({ children }) => {
   return (
     <>
       <Navbar />
+
       {children}
       <Footer />
     </>

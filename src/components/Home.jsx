@@ -61,73 +61,73 @@ const Home = ({
 
   return (
     <div className="min-h-screen bg-slate-950 text-white  antialiased">
-      <style>{`
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-15px); }
-        }
-        @keyframes glow {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-        @keyframes shimmer {
-          0% { background-position: -1000px 0; }
-          100% { background-position: 1000px 0; }
-        }
-        .animate-fadeInUp { animation: fadeInUp 0.8s ease-out forwards; }
-        .animate-float { animation: float 6s ease-in-out infinite; }
-        .animate-glow { animation: glow 3s ease-in-out infinite; }
-        .animate-shimmer {
-          background: linear-linear(to right, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
-          background-size: 1000px 100%;
-          animation: shimmer 3s infinite;
-        }
-      `}</style>
-
-      {/* HEADER */}
-      {/* <Navbar /> */}
       {/* HERO SECTION - DARK */}
       <section className="relative min-h-screen flex items-center justify-center px-6 py-32 overflow-hidden bg-slate-950">
+        {/* Background Video */}
+        <video
+          className="absolute inset-0 w-full h-full object-cover opacity-70"
+          autoPlay
+          muted
+          loop
+          playsInline
+        >
+          <source
+            // src="https://www.pexels.com/download/video/28825871/"
+            src="/hero-video.mp4"
+            type="video/mp4"
+          />
+        </video>
+
+        {/* Dark Overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950"></div>
+
+        {/* Noise Overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{
+            backgroundImage:
+              "url('https://grainy-gradients.vercel.app/noise.svg')",
+          }}
+        />
+
         {/* Grid Pattern */}
         <div
           className="absolute inset-0 opacity-20"
           style={{
-            backgroundImage: `linear-linear(rgba(16, 185, 129, 0.1) 1px, transparent 1px),
-                           linear-linear(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px)`,
+            backgroundImage: `
+        linear-gradient(rgba(16,185,129,0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16,185,129,0.15) 1px, transparent 1px)
+      `,
             backgroundSize: "50px 50px",
           }}
-        ></div>
+        />
 
-        {/* Animated linear Orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-[120px] animate-float"></div>
-        <div
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/20 rounded-full blur-[120px] animate-float"
-          style={{ animationDelay: "2s" }}
-        ></div>
+        {/* Floating Glow Orbs */}
+        <div className="absolute -top-20 -left-20 w-[500px] h-[500px] bg-emerald-500/20 rounded-full blur-[160px] animate-float-slow"></div>
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-teal-500/20 rounded-full blur-[160px] animate-float-slower"></div>
 
         <div className="container mx-auto max-w-6xl relative z-10">
-          <div className="md:text-center space-y-8 animate-fadeInUp">
+          <div className="text-center space-y-10 animate-fadeInUp">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-5 py-2 bg-white/5 backdrop-blur-sm rounded-full border border-emerald-500/20">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-glow"></div>
+            <div className="inline-flex items-center gap-2 px-6 py-2 bg-white/5 backdrop-blur-md rounded-full border border-emerald-500/30 shadow-lg">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
               <span className="text-sm font-medium text-emerald-400">
                 AI-Powered NAATI CCL Platform
               </span>
             </div>
 
-            {/* Main Headline */}
+            {/* Heading */}
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold leading-[1.1] tracking-tight">
               <span className="block text-white">Ace Your NAATI CCL</span>
-              <span className="block bg-linear-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent animate-gradient">
                 with AI Precision
               </span>
             </h1>
 
-            {/* Subheadline */}
+            {/* Subheading */}
             <p className="text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
               Transform your preparation with intelligent feedback, real-time
               scoring, and personalized insights. Join 100,000+ students who
@@ -135,16 +135,13 @@ const Home = ({
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-wrap justify-center gap-4 pt-4">
+            <div className="flex flex-wrap justify-center gap-6 pt-6">
               <button
                 onClick={onStartPractice}
-                className="group relative px-10 py-5 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/50"
+                className="group relative px-10 py-5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/50"
               >
-                <div className="absolute inset-0 animate-shimmer"></div>
-                <Link
-                  to={"/login"}
-                  className="relative flex items-center gap-3"
-                >
+                <span className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                <Link to="/login" className="relative flex items-center gap-3">
                   <Play size={20} fill="currentColor" />
                   Start Free Practice
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -152,7 +149,7 @@ const Home = ({
               </button>
 
               <button
-                className="px-10 py-5 bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 hover:border-emerald-500/30 text-white font-semibold rounded-full transition-all"
+                className="px-10 py-5 bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 hover:border-emerald-500/40 text-white font-semibold rounded-full transition-all"
                 onClick={() =>
                   document
                     .getElementById("video-section")
@@ -164,22 +161,38 @@ const Home = ({
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 pt-16 max-w-3xl mx-auto">
-              <div className="relative p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:border-emerald-500/30 transition-all">
-                <Users className="w-8 h-8 text-emerald-400 mb-3 mx-auto" />
-                <div className="text-4xl font-bold text-white mb-1">100K+</div>
-                <div className="text-sm text-slate-400">Active Students</div>
-              </div>
-              <div className="relative p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:border-teal-500/30 transition-all">
-                <Trophy className="w-8 h-8 text-teal-400 mb-3 mx-auto" />
-                <div className="text-4xl font-bold text-white mb-1">95%</div>
-                <div className="text-sm text-slate-400">Success Rate</div>
-              </div>
-              <div className="relative p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 hover:border-emerald-500/30 transition-all">
-                <Brain className="w-8 h-8 text-emerald-400 mb-3 mx-auto" />
-                <div className="text-4xl font-bold text-white mb-1">AI</div>
-                <div className="text-sm text-slate-400">Powered</div>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 pt-20 max-w-3xl mx-auto">
+              {[
+                {
+                  icon: Users,
+                  value: "100K+",
+                  label: "Active Students",
+                  color: "emerald",
+                },
+                {
+                  icon: Trophy,
+                  value: "95%",
+                  label: "Success Rate",
+                  color: "teal",
+                },
+                {
+                  icon: Brain,
+                  value: "AI",
+                  label: "Powered",
+                  color: "emerald",
+                },
+              ].map(({ icon: Icon, value, label, color }) => (
+                <div
+                  key={label}
+                  className="p-6 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-emerald-500/40 transition-all hover:-translate-y-1"
+                >
+                  <Icon className={`w-8 h-8 text-${color}-400 mb-3 mx-auto`} />
+                  <div className="text-4xl font-bold text-white mb-1">
+                    {value}
+                  </div>
+                  <div className="text-sm text-slate-400">{label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

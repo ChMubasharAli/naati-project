@@ -1,3 +1,4 @@
+// src/components/UpdateLoggedInUser.jsx
 import { Button, PasswordInput } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 import React, { useState } from "react";
@@ -12,14 +13,13 @@ export default function UpdateLoggedInUser() {
     confirmPassword: "",
   });
 
-  // Update mutation
+  // Update mutation - Fixed API endpoint
   const updateMutation = useMutation({
     mutationFn: ({ password }) =>
-      apiClient.put(`/api/agents/${user?.id}`, { password }),
+      apiClient.put(`/api/v1/users/${user?.id}`, { password }),
 
-    onSuccess: (response) => {
+    onSuccess: () => {
       toast.success("Password updated successfully!");
-      console.log("Response Data:", response.data);
       setPasswordValues({ password: "", confirmPassword: "" });
     },
 
@@ -52,7 +52,7 @@ export default function UpdateLoggedInUser() {
 
     if (password !== confirmPassword) {
       toast.error(
-        "Your new password and confirmation do not match. Please try again."
+        "Your new password and confirmation do not match. Please try again.",
       );
       return;
     }
@@ -66,7 +66,7 @@ export default function UpdateLoggedInUser() {
         classNames={{ label: "mb-1 text-slate-400!" }}
         radius="md"
         label="New Password"
-        placeholder="New password"
+        placeholder="Enter new password"
         mb="md"
         required
         value={passwordValues.password}
@@ -77,14 +77,13 @@ export default function UpdateLoggedInUser() {
           }))
         }
         disabled={updateMutation.isPending}
-        
       />
 
       <PasswordInput
         classNames={{ label: "mb-1 text-slate-400!" }}
         radius="md"
         label="Confirm Password"
-        placeholder="Confirm password"
+        placeholder="Confirm new password"
         mb="md"
         required
         value={passwordValues.confirmPassword}
@@ -95,7 +94,6 @@ export default function UpdateLoggedInUser() {
           }))
         }
         disabled={updateMutation.isPending}
-        o
       />
 
       <Button
@@ -107,7 +105,7 @@ export default function UpdateLoggedInUser() {
         radius="md"
         size="sm"
         classNames={{
-          root: "!bg-linear-to-r from-emerald-500 to-teal-500 text-white! font-semibold! hover:from-emerald-600! hover:to-teal-600! transition-all! shadow-lg! hover:shadow-emerald-500/50!",
+          root: "!bg-gradient-to-r from-emerald-500 to-teal-500 text-white! font-semibold! hover:from-emerald-600! hover:to-teal-600! transition-all! shadow-lg! hover:shadow-emerald-500/50!",
         }}
       >
         Update Password

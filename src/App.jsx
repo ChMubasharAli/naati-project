@@ -126,8 +126,7 @@ export default function App() {
 
         <Route element={<UserProtectedRoute />}>
           <Route path="/user" element={<UserLayout />}>
-            <Route index element={<UserDashboard />} />
-            <Route path="dialogues" element={<ShowAllDialogues />} />
+            <Route index element={<ShowAllDialogues />} />
             <Route path="practice-dialogue" element={<PracticeDialogue />} />
             <Route path="rapid-review" element={<ShowAllRapidDialogues />} />
             <Route path="rapid-review-dialogues" element={<RapidReview />} />

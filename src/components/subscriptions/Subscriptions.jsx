@@ -210,7 +210,7 @@ const Subscriptions = () => {
                     <button
                       onClick={() => enrollNow(course.id, course.type)}
                       disabled={loadingCourseId !== null}
-                      className={`group relative w-full py-4 px-6 rounded-2xl font-bold text-sm transition-all duration-300 overflow-hidden ${
+                      className={`group cursor-pointer relative w-full py-4 px-6 rounded-2xl font-bold text-sm transition-all duration-300 overflow-hidden ${
                         course.popular
                           ? "bg-gray-900 text-white shadow-xl hover:shadow-emerald-200"
                           : "bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white"

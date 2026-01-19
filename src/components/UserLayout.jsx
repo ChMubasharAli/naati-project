@@ -4,7 +4,7 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import Header from "./Header";
 
-import { CreditCard, Home, MessageSquare, Users, Zap } from "lucide-react";
+import { CreditCard, MessageSquare, Zap } from "lucide-react";
 
 export default function UserLayout() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,12 +13,7 @@ export default function UserLayout() {
   });
 
   const menuItems = [
-    { name: "Dashboard", icon: Home, href: ".", end: true },
-    {
-      name: "Practice-Dialogue",
-      icon: MessageSquare,
-      href: "dialogues",
-    },
+    { name: "Practice-Dialogue", icon: MessageSquare, href: ".", end: true },
 
     { name: "Rapid Review", icon: Zap, href: "rapid-review" },
 

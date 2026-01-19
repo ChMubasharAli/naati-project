@@ -14,6 +14,7 @@ import {
   Volume2,
   Clock,
   CheckCircle,
+  Lock,
 } from "lucide-react";
 import { Modal, Button } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -24,7 +25,11 @@ const PracticeDialogue = () => {
   // State variables
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user: loggedInUser } = useAuth();
+  const { user: loggedInUser, hasActiveSubscription } = useAuth();
+
+  // 🔥 NEW: Rapid review daily limit tracking
+  const [dailyReviewsUsed, setDailyReviewsUsed] = useState(0);
+  const [isReviewAllowed, setIsReviewAllowed] = useState(true);
 
   // Get URL parameters
   const dialogueId = searchParams.get("dialogueId");
@@ -33,6 +38,48 @@ const PracticeDialogue = () => {
 
   // User ID from auth
   const userId = loggedInUser?.id;
+
+  // 🔥 NEW: Check daily limit on component mount
+  useEffect(() => {
+    if (loggedInUser && examType === "rapid_review" && !hasActiveSubscription) {
+      const today = new Date().toDateString();
+      const storedData = localStorage.getItem(
+        `dailyReviews_${loggedInUser.id}`,
+      );
+
+      if (storedData) {
+        const { date, count } = JSON.parse(storedData);
+        if (date === today) {
+          setDailyReviewsUsed(count);
+          if (count >= 5) {
+            setIsReviewAllowed(false);
+          }
+        } else {
+          // New day, reset counter
+          localStorage.setItem(
+            `dailyReviews_${loggedInUser.id}`,
+            JSON.stringify({
+              date: today,
+              count: 0,
+            }),
+          );
+          setDailyReviewsUsed(0);
+          setIsReviewAllowed(true);
+        }
+      } else {
+        // First time user
+        localStorage.setItem(
+          `dailyReviews_${loggedInUser.id}`,
+          JSON.stringify({
+            date: today,
+            count: 0,
+          }),
+        );
+        setDailyReviewsUsed(0);
+        setIsReviewAllowed(true);
+      }
+    }
+  }, [loggedInUser, examType, hasActiveSubscription]);
 
   // Exam data state
   const [examData, setExamData] = useState(null);
@@ -79,6 +126,19 @@ const PracticeDialogue = () => {
     // ✅ Early return conditions
     if (!dialogueId || !userId) {
       console.error("Missing dialogue ID or user ID");
+      navigate("/user/dialogues");
+      return;
+    }
+
+    // ✅ Check daily limit for rapid review
+    if (
+      examType === "rapid_review" &&
+      !hasActiveSubscription &&
+      !isReviewAllowed
+    ) {
+      alert(
+        "You have used your 5 daily rapid reviews. Upgrade to premium for unlimited access.",
+      );
       navigate("/user/dialogues");
       return;
     }
@@ -151,7 +211,14 @@ const PracticeDialogue = () => {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []); // ✅ EMPTY dependency array - runs only on mount
+  }, [
+    dialogueId,
+    userId,
+    examType,
+    hasActiveSubscription,
+    isReviewAllowed,
+    navigate,
+  ]);
 
   // Initialize camera
   useEffect(() => {
@@ -179,6 +246,33 @@ const PracticeDialogue = () => {
 
   // Get current segment
   const currentSegment = segments[currentSegmentIndex];
+
+  // 🔥 NEW: Get first 10 words for free users
+  const getLimitedTextContent = () => {
+    if (!currentSegment?.textContent) return "";
+
+    const words = currentSegment.textContent.split(" ");
+    if (hasActiveSubscription || examType !== "rapid_review") {
+      // Premium users or non-rapid-review get full text
+      return currentSegment.textContent;
+    } else {
+      // Free users for rapid review get only first 10 words
+      const firstTenWords = words.slice(0, 10).join(" ");
+      const remainingWords = words.slice(10).join(" ");
+
+      return {
+        visible: firstTenWords,
+        hidden: remainingWords,
+        totalWords: words.length,
+      };
+    }
+  };
+
+  const limitedTextContent = getLimitedTextContent();
+  const isTextLimited =
+    !hasActiveSubscription &&
+    examType === "rapid_review" &&
+    typeof limitedTextContent === "object";
 
   // Get current segment's recording and attempts
   const currentRecording = currentSegment
@@ -352,6 +446,38 @@ const PracticeDialogue = () => {
     ],
   );
 
+  // 🔥 NEW: Update daily review count after successful submission
+  const updateDailyReviewCount = () => {
+    if (loggedInUser && examType === "rapid_review" && !hasActiveSubscription) {
+      const today = new Date().toDateString();
+      const storedData = localStorage.getItem(
+        `dailyReviews_${loggedInUser.id}`,
+      );
+
+      let newCount = 1;
+      if (storedData) {
+        const { date, count } = JSON.parse(storedData);
+        if (date === today) {
+          newCount = count + 1;
+        }
+      }
+
+      localStorage.setItem(
+        `dailyReviews_${loggedInUser.id}`,
+        JSON.stringify({
+          date: today,
+          count: newCount,
+        }),
+      );
+
+      setDailyReviewsUsed(newCount);
+
+      if (newCount >= 5) {
+        setIsReviewAllowed(false);
+      }
+    }
+  };
+
   // 🔥 NEW: Handle modal close and move to next segment
   const handleModalClose = () => {
     close();
@@ -387,6 +513,12 @@ const PracticeDialogue = () => {
       // Save segment result and show modal
       if (response && response.data) {
         setSegmentResult(response.data);
+
+        // Update daily review count for rapid review
+        if (examType === "rapid_review" && !hasActiveSubscription) {
+          updateDailyReviewCount();
+        }
+
         open();
       } else {
         alert("Failed to get segment result. Please try again.");
@@ -419,6 +551,12 @@ const PracticeDialogue = () => {
       // Save segment result and show modal
       if (response && response.data) {
         setSegmentResult(response.data);
+
+        // Update daily review count for rapid review
+        if (examType === "rapid_review" && !hasActiveSubscription) {
+          updateDailyReviewCount();
+        }
+
         open();
       } else {
         alert("Failed to get segment result. Please try again.");
@@ -520,6 +658,37 @@ const PracticeDialogue = () => {
     <>
       {/* Add wave animation CSS */}
       <style>{waveAnimationCSS}</style>
+
+      {/* 🔥 NEW: Daily Limit Warning Banner */}
+      {examType === "rapid_review" && !hasActiveSubscription && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-800">
+                    Daily Rapid Reviews: {dailyReviewsUsed}/5 used
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    {5 - dailyReviewsUsed} reviews remaining today
+                  </p>
+                </div>
+              </div>
+              {dailyReviewsUsed >= 5 && (
+                <button
+                  onClick={() => navigate("/subscriptions")}
+                  className="px-4 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:opacity-90"
+                >
+                  Upgrade for Unlimited
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🔥 NEW: Loading Overlay for Segment Submission */}
       {isSubmittingSegment && (
@@ -654,13 +823,64 @@ const PracticeDialogue = () => {
                 </span>
               </div>
 
-              {/* Current Segment Text - For Small Screens */}
+              {/* 🔥 UPDATED: Current Segment Text with Vocabulary Limitation */}
               {currentSegment?.textContent && (
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 ">
-                  <h3 className="font-bold text-gray-700 mb-2">
-                    Current Segment:
-                  </h3>
-                  <p className="text-gray-800">{currentSegment.textContent}</p>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold text-gray-700">
+                      Current Segment:
+                    </h3>
+                    {isTextLimited && (
+                      <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">
+                        Limited Preview
+                      </span>
+                    )}
+                  </div>
+
+                  {isTextLimited ? (
+                    <div className="relative">
+                      {/* Visible first 10 words */}
+                      <p className="text-gray-800 mb-2">
+                        {limitedTextContent.visible}
+                        {limitedTextContent.totalWords > 10 && (
+                          <span className="text-gray-400"> ...</span>
+                        )}
+                      </p>
+
+                      {/* Blurred remaining words */}
+                      {limitedTextContent.hidden && (
+                        <div className="relative">
+                          <div className="filter blur-sm opacity-60">
+                            <p className="text-gray-800">
+                              ... {limitedTextContent.hidden}
+                            </p>
+                          </div>
+
+                          {/* Upgrade overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-white/80 to-transparent flex flex-col items-center justify-end p-4 rounded-lg">
+                            <Lock className="w-6 h-6 text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-600 text-center mb-2">
+                              Upgrade to premium to view full vocabulary
+                            </p>
+                            <button
+                              onClick={() => navigate("/subscriptions")}
+                              className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-medium rounded-lg hover:opacity-90"
+                            >
+                              Upgrade Now
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="text-xs text-gray-500 mt-2">
+                        Showing 10 of {limitedTextContent.totalWords} words
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-800">
+                      {currentSegment.textContent}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -677,8 +897,6 @@ const PracticeDialogue = () => {
                   className="w-full h-full object-cover"
                 />
               </div>
-
-              {/* Current Segment Text - For Large Screens */}
 
               {/* Audio Section */}
               <div className="space-y-4 sm:space-y-6">
@@ -905,6 +1123,23 @@ const PracticeDialogue = () => {
         >
           {segmentResult ? (
             <div className="space-y-4 sm:space-y-6 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto pr-1 sm:pr-2">
+              {/* Daily Review Remaining Info */}
+              {examType === "rapid_review" && !hasActiveSubscription && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-lg border border-amber-200 mb-4">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-amber-600" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">
+                        Daily Reviews: {dailyReviewsUsed}/5 used today
+                      </p>
+                      <p className="text-xs text-amber-600">
+                        {5 - dailyReviewsUsed} rapid reviews remaining
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Segment Summary */}
               <div className="bg-linear-to-r from-emerald-50 to-teal-50 p-4 sm:p-6 rounded-lg border border-emerald-200">
                 <h3 className="font-bold text-lg sm:text-xl text-emerald-800 mb-3 sm:mb-4">

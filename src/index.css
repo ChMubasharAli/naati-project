@@ -24,21 +24,22 @@ body {
 
 /* Style entire scrollbar */
 ::-webkit-scrollbar {
-  width: 8px; /* thickness */
+  width: 8px; /* vertical scrollbar */
+  height: 8px; /* horizontal scrollbar */
 }
 
-/* Track (background area) */
+/* Track */
 ::-webkit-scrollbar-track {
-  background: transparent; /* light gray */
+  background: transparent;
 }
 
-/* Thumb (scroll handle) */
+/* Thumb */
 ::-webkit-scrollbar-thumb {
-  background: #14b8a6; /* darker gray */
-  border-radius: 5px; /* rounded edges */
+  background: #14b8a6;
+  border-radius: 5px;
 }
 
 /* Thumb on hover */
 ::-webkit-scrollbar-thumb:hover {
-  background: #0d9488; /* even darker */
+  background: #0d9488;
 }

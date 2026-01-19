@@ -69,7 +69,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white  antialiased flex items-center justify-center px-6 py-20 overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-white  antialiased flex items-center justify-center px-6 py-32 overflow-hidden">
       <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px); }

@@ -28,7 +28,11 @@ const PracticeDialogue = () => {
   // State variables
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user: loggedInUser } = useAuth();
+  const { user: loggedInUser, hasActiveSubscription, subscription } = useAuth();
+
+  // Track free mock test usage
+  const [freeTestUsed, setFreeTestUsed] = useState(false);
+  const [isFreeTestActive, setIsFreeTestActive] = useState(false);
 
   // Get URL parameters
   const dialogueId = searchParams.get("dialogueId");
@@ -37,6 +41,16 @@ const PracticeDialogue = () => {
 
   // User ID from auth
   const userId = loggedInUser?.id;
+
+  // Check if user has used free test
+  useEffect(() => {
+    if (loggedInUser && !hasActiveSubscription) {
+      const usedFreeTest = localStorage.getItem(
+        `freeTestUsed_${loggedInUser.id}`,
+      );
+      setFreeTestUsed(usedFreeTest === "true");
+    }
+  }, [loggedInUser, hasActiveSubscription]);
 
   // Exam data state
   const [examData, setExamData] = useState(null);
@@ -384,6 +398,12 @@ const PracticeDialogue = () => {
       const result = await getExamResult(examAttemptId);
       setExamResult(result);
 
+      // Mark free test as used if user is not subscribed
+      if (!hasActiveSubscription && loggedInUser) {
+        localStorage.setItem(`freeTestUsed_${loggedInUser.id}`, "true");
+        setFreeTestUsed(true);
+      }
+
       // Clear localStorage
       localStorage.removeItem("examData");
 
@@ -572,65 +592,180 @@ const PracticeDialogue = () => {
           <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:gap-12">
             {/* Left Instructions */}
             <div className="flex-1 space-y-3 sm:space-y-4 text-xs sm:text-[13.5px] text-[#444] leading-relaxed">
-              <h2 className="text-base sm:text-[18px] font-bold text-[#3db39e] uppercase mb-4 sm:mb-6 lg:mb-8 tracking-wide text-center sm:text-left">
-                {examData?.dialogue?.title || "Dialogue"}
-              </h2>
-              <p>
-                This segment is intended to{" "}
-                <strong>test your audio and visual equipment</strong> prior to
-                taking the full CCL test.
-              </p>
-              <p>
-                Click on <strong>Play Audio</strong> below the audio, to hear
-                the segment and test your microphone and camera.
-              </p>
-              <p>
-                You should be able to see yourself, and notice soundwaves when
-                audio will play.
-              </p>
-              <p>
-                Click on <strong>Next </strong>, to upload your recorded audio
-                and move to the next segment.
-              </p>
-              <p>
-                You can also play and listen to the{" "}
-                <strong>Suggested Audio</strong> for this segment, to compare
-                with your recording.
-              </p>
+              <div className="flex items-center justify-between">
+                <h2 className="text-base sm:text-[18px] font-bold text-[#3db39e] uppercase mb-4 sm:mb-6 lg:mb-8 tracking-wide text-center sm:text-left">
+                  {examData?.dialogue?.title || "Dialogue"}
+                </h2>
 
-              <div className="mt-6 sm:mt-8 space-y-2 sm:space-y-3">
-                <p className="font-bold">Repeat:</p>
-                <p>
-                  You are able to repeat any segment before you begin speaking (
-                  <span className="font-bold underline">
-                    one repeat per dialogue without penalty
+                {/* Free Test Badge - Only show for non-subscribed users */}
+                {!hasActiveSubscription && !freeTestUsed && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                    🎁 Try Now - Free Test
                   </span>
-                  ) to do this:
-                </p>
-                <ul className="list-disc pl-4 sm:pl-5">
-                  <li>
-                    Click on the <strong>Retry</strong> button for again
-                    recording you voice
-                  </li>
-                </ul>
+                )}
+
+                {/* Subscription Required Badge */}
+                {!hasActiveSubscription && freeTestUsed && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                    🔒 Premium Required
+                  </span>
+                )}
+
+                {/* Premium User Badge */}
+                {hasActiveSubscription && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    ✅ Premium Access
+                  </span>
+                )}
               </div>
 
-              <div className="mt-8 sm:mt-10 flex items-center gap-2 text-xs sm:text-[13px] flex-wrap">
-                <span>
-                  Now you can start your test by clicking on the{" "}
-                  <strong>Play Audio </strong> button.
-                </span>
-              </div>
-
-              {/* Current Segment Text - For Small Screens */}
-              {currentSegment?.textContent && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 ">
-                  <h3 className="font-bold text-gray-700 mb-2">
-                    Current Segment:
-                  </h3>
-                  <p className="text-gray-800">{currentSegment.textContent}</p>
+              {/* Access Control Message */}
+              {!hasActiveSubscription && freeTestUsed && (
+                <div className="bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg
+                        className="h-5 w-5 text-red-500"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">
+                        Premium Access Required
+                      </h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <p>
+                          You have used your free test. Upgrade to premium for
+                          unlimited access to:
+                        </p>
+                        <ul className="list-disc pl-5 mt-1">
+                          <li>All practice dialogues</li>
+                          <li>Advanced analytics</li>
+                          <li>Full mock tests</li>
+                        </ul>
+                        <button
+                          onClick={() => navigate("/user/subscriptions")}
+                          className="mt-3 px-4 py-2 cursor-pointer bg-gradient-to-r from-red-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+                        >
+                          Upgrade to Premium
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Main Instructions - Only show if access allowed */}
+              {hasActiveSubscription || !freeTestUsed ? (
+                <>
+                  <p>
+                    This segment is intended to{" "}
+                    <strong>test your audio and visual equipment</strong> prior
+                    to taking the full CCL test.
+                  </p>
+                  <p>
+                    Click on <strong>Play Audio</strong> below the audio, to
+                    hear the segment and test your microphone and camera.
+                  </p>
+                  <p>
+                    You should be able to see yourself, and notice soundwaves
+                    when audio will play.
+                  </p>
+                  <p>
+                    Click on <strong>Next </strong>, to upload your recorded
+                    audio and move to the next segment.
+                  </p>
+                  <p>
+                    You can also play and listen to the{" "}
+                    <strong>Suggested Audio</strong> for this segment, to
+                    compare with your recording.
+                  </p>
+
+                  <div className="mt-6 sm:mt-8 space-y-2 sm:space-y-3">
+                    <p className="font-bold">Repeat:</p>
+                    <p>
+                      You are able to repeat any segment before you begin
+                      speaking (
+                      <span className="font-bold underline">
+                        one repeat per dialogue without penalty
+                      </span>
+                      ) to do this:
+                    </p>
+                    <ul className="list-disc pl-4 sm:pl-5">
+                      <li>
+                        Click on the <strong>Retry</strong> button for again
+                        recording you voice
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-8 sm:mt-10 flex items-center gap-2 text-xs sm:text-[13px] flex-wrap">
+                    <span>
+                      Now you can start your test by clicking on the{" "}
+                      <strong>Play Audio </strong> button.
+                    </span>
+
+                    {/* Free Test Usage Notice */}
+                    {!hasActiveSubscription && !freeTestUsed && (
+                      <span className="text-yellow-600 font-medium">
+                        (This is your free trial test)
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Locked Content for non-subscribed users who used free test */
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                    <svg
+                      className="w-8 h-8 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-700 mb-2">
+                    Content Locked
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    You have already used your free test. Upgrade to premium for
+                    unlimited access to all practice dialogues.
+                  </p>
+                  <button
+                    onClick={() => navigate("/user/subscriptions")}
+                    className="px-6 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    View Pricing Plans
+                  </button>
+                </div>
+              )}
+
+              {/* Current Segment Text - For Small Screens */}
+              {(hasActiveSubscription || !freeTestUsed) &&
+                currentSegment?.textContent && (
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 ">
+                    <h3 className="font-bold text-gray-700 mb-2">
+                      Current Segment:
+                    </h3>
+                    <p className="text-gray-800">
+                      {currentSegment.textContent}
+                    </p>
+                  </div>
+                )}
             </div>
 
             {/* Right Interface (Video & Audio) */}
@@ -646,144 +781,204 @@ const PracticeDialogue = () => {
                 />
               </div>
 
-              {/* Current Segment Text - For Large Screens */}
-
               {/* Audio Section */}
-              <div className="space-y-4 sm:space-y-6">
-                {/* Hidden audio element for original audio */}
-                {currentSegment?.audioUrl && (
-                  <audio
-                    ref={originalAudioRef}
-                    src={currentSegment.audioUrl}
-                    style={{ display: "none" }}
-                  />
-                )}
+              {hasActiveSubscription || !freeTestUsed ? (
+                <div className="space-y-4 sm:space-y-6">
+                  {/* Hidden audio element for original audio */}
+                  {currentSegment?.audioUrl && (
+                    <audio
+                      ref={originalAudioRef}
+                      src={currentSegment.audioUrl}
+                      style={{ display: "none" }}
+                    />
+                  )}
 
-                {/* Original Audio - Wave visualization */}
-                {currentSegment?.audioUrl && (
-                  <div>
+                  {/* Original Audio - Wave visualization */}
+                  {currentSegment?.audioUrl && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        Original Audio:
+                      </p>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                        {/* Audio Wave Visualization */}
+                        <div className="flex-1 w-full h-12 sm:h-16 bg-gray-100 rounded-lg border border-gray-300 p-3 sm:p-4">
+                          <div className="flex items-center justify-center h-full">
+                            <div className="flex items-end h-6 sm:h-8 gap-0.5 sm:gap-1">
+                              {waveHeights.map((height, index) => (
+                                <div
+                                  key={index}
+                                  className="w-0.5 sm:w-1 bg-emerald-500 rounded-full"
+                                  style={{
+                                    height: `${height}%`,
+                                    ...(isAudioPlaying ? waveStyle : {}),
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={playOriginalAudioAndAutoRecord}
+                          disabled={
+                            isRecording || currentRecording || isAudioPlaying
+                          }
+                          className={`px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto ${
+                            isRecording || currentRecording || isAudioPlaying
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              : "bg-emerald-500 text-white hover:bg-emerald-600"
+                          }`}
+                        >
+                          <Play size={14} className="sm:size-[16px]" />
+                          <span>Play Audio</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggested Audio - With controls */}
+                  {currentSegment?.suggestedAudioUrl && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        Suggested Audio:
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <audio
+                          ref={suggestedAudioRef}
+                          src={currentSegment.suggestedAudioUrl}
+                          controls
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status and Controls */}
+                  <div className="space-y-4">
+                    {/* Attempts Count */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">
+                          Attempts: {currentAttempts}
+                        </span>
+                        {isRecording && (
+                          <div className="flex items-center gap-1 text-red-500">
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs">Recording...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Recording Controls */}
+                      <div className="flex flex-wrap gap-2 sm:gap-4">
+                        {/* Stop Recording Button (only when recording) */}
+                        {isRecording && (
+                          <button
+                            onClick={stopRecording}
+                            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm w-full sm:w-auto justify-center"
+                          >
+                            <Square size={14} className="sm:size-[16px]" />
+                            Stop Recording
+                          </button>
+                        )}
+
+                        {/* Retry Button (after first recording) */}
+                        {showRetryButton && (
+                          <button
+                            onClick={handleRetry}
+                            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-[#006b5e] hover:bg-[#005a4f] text-white rounded-lg text-sm w-full sm:w-auto justify-center"
+                          >
+                            <RefreshCw size={14} className="sm:size-[16px]" />
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Next/Finish Button Info */}
+                    {currentRecording && !isRecording && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-xs sm:text-sm font-medium text-green-700">
+                          {isLastSegment ? (
+                            <>
+                              <CheckCircle
+                                size={14}
+                                className="inline mr-1 sm:size-[16px]"
+                              />
+                              Ready to finish! Click "Finish" to submit all
+                              responses and view results.
+                            </>
+                          ) : (
+                            <>
+                              ✓ Recording completed! Click "Next" to continue to
+                              the next segment.
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Locked Audio Section */
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gray-100 bg-opacity-80 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center p-8 z-10">
+                    <svg
+                      className="w-12 h-12 text-gray-400 mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">
+                      Audio Section Locked
+                    </h3>
+                    <p className="text-gray-600 text-center mb-4">
+                      Upgrade to premium to access audio recording features
+                    </p>
+                    <button
+                      onClick={() => navigate("/user/subscriptions")}
+                      className="px-6 cursor-pointer py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      Unlock Premium
+                    </button>
+                  </div>
+
+                  {/* Blurred Original Audio Section */}
+                  <div className="filter blur-sm">
                     <p className="text-sm font-medium text-gray-700 mb-2">
                       Original Audio:
                     </p>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      {/* Audio Wave Visualization */}
-                      <div className="flex-1 w-full h-12 sm:h-16 bg-gray-100 rounded-lg border border-gray-300 p-3 sm:p-4">
+                      <div className="flex-1 w-full h-12 sm:h-16 bg-gray-100 rounded-lg border border-gray-300 p-3 sm:p-4 opacity-50">
                         <div className="flex items-center justify-center h-full">
                           <div className="flex items-end h-6 sm:h-8 gap-0.5 sm:gap-1">
                             {waveHeights.map((height, index) => (
                               <div
                                 key={index}
-                                className="w-0.5 sm:w-1 bg-emerald-500 rounded-full"
-                                style={{
-                                  height: `${height}%`,
-                                  ...(isAudioPlaying ? waveStyle : {}),
-                                }}
+                                className="w-0.5 sm:w-1 bg-gray-400 rounded-full"
+                                style={{ height: `${height}%` }}
                               />
                             ))}
                           </div>
                         </div>
                       </div>
                       <button
-                        onClick={playOriginalAudioAndAutoRecord}
-                        disabled={
-                          isRecording || currentRecording || isAudioPlaying
-                        }
-                        className={`px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto ${
-                          isRecording || currentRecording || isAudioPlaying
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-emerald-500 text-white hover:bg-emerald-600"
-                        }`}
+                        disabled
+                        className="px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto bg-gray-300 text-gray-500 cursor-not-allowed"
                       >
                         <Play size={14} className="sm:size-[16px]" />
                         <span>Play Audio</span>
                       </button>
                     </div>
                   </div>
-                )}
-
-                {/* Suggested Audio - With controls */}
-                {currentSegment?.suggestedAudioUrl && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Suggested Audio:
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <audio
-                        ref={suggestedAudioRef}
-                        src={currentSegment.suggestedAudioUrl}
-                        controls
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Status and Controls */}
-                <div className="space-y-4">
-                  {/* Attempts Count */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        Attempts: {currentAttempts}
-                      </span>
-                      {isRecording && (
-                        <div className="flex items-center gap-1 text-red-500">
-                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                          <span className="text-xs">Recording...</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Recording Controls */}
-                    <div className="flex flex-wrap gap-2 sm:gap-4">
-                      {/* Stop Recording Button (only when recording) */}
-                      {isRecording && (
-                        <button
-                          onClick={stopRecording}
-                          className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm w-full sm:w-auto justify-center"
-                        >
-                          <Square size={14} className="sm:size-[16px]" />
-                          Stop Recording
-                        </button>
-                      )}
-
-                      {/* Retry Button (after first recording) */}
-                      {showRetryButton && (
-                        <button
-                          onClick={handleRetry}
-                          className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-[#006b5e] hover:bg-[#005a4f] text-white rounded-lg text-sm w-full sm:w-auto justify-center"
-                        >
-                          <RefreshCw size={14} className="sm:size-[16px]" />
-                          Retry
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Next/Finish Button Info */}
-                  {currentRecording && !isRecording && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-xs sm:text-sm font-medium text-green-700">
-                        {isLastSegment ? (
-                          <>
-                            <CheckCircle
-                              size={14}
-                              className="inline mr-1 sm:size-[16px]"
-                            />
-                            Ready to finish! Click "Finish" to submit all
-                            responses and view results.
-                          </>
-                        ) : (
-                          <>
-                            ✓ Recording completed! Click "Next" to continue to
-                            the next segment.
-                          </>
-                        )}
-                      </p>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </main>
@@ -802,53 +997,55 @@ const PracticeDialogue = () => {
             ))}
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="flex justify-end items-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-100">
-            <button
-              onClick={handlePreviousClick}
-              disabled={currentSegmentIndex === 0 || isSubmittingFinal}
-              className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                currentSegmentIndex === 0 || isSubmittingFinal
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-700"
-              }`}
-            >
-              <ChevronLeft size={16} className="sm:size-[18px]" />
-              <span>Previous</span>
-            </button>
+          {/* Navigation Buttons - Only show if user has access */}
+          {(hasActiveSubscription || !freeTestUsed) && (
+            <div className="flex justify-end items-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-100">
+              <button
+                onClick={handlePreviousClick}
+                disabled={currentSegmentIndex === 0 || isSubmittingFinal}
+                className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
+                  currentSegmentIndex === 0 || isSubmittingFinal
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                <ChevronLeft size={16} className="sm:size-[18px]" />
+                <span>Previous</span>
+              </button>
 
-            <div className="flex items-center gap-2 sm:gap-4">
-              {isLastSegment ? (
-                // FINISH Button for last segment
-                <button
-                  onClick={handleFinishClick}
-                  disabled={!currentRecording || isSubmittingFinal}
-                  className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                    !currentRecording || isSubmittingFinal
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
-                >
-                  <CheckCircle size={16} className="sm:size-[18px]" />
-                  <span>Finish</span>
-                </button>
-              ) : (
-                // NEXT Button for all other segments
-                <button
-                  onClick={handleNextClick}
-                  disabled={!currentRecording}
-                  className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                    !currentRecording
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-[#006b5e] hover:bg-[#005a4f]"
-                  }`}
-                >
-                  <span>Next</span>
-                  <ArrowRight size={16} className="sm:size-[18px]" />
-                </button>
-              )}
+              <div className="flex items-center gap-2 sm:gap-4">
+                {isLastSegment ? (
+                  // FINISH Button for last segment
+                  <button
+                    onClick={handleFinishClick}
+                    disabled={!currentRecording || isSubmittingFinal}
+                    className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
+                      !currentRecording || isSubmittingFinal
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
+                  >
+                    <CheckCircle size={16} className="sm:size-[18px]" />
+                    <span>Finish</span>
+                  </button>
+                ) : (
+                  // NEXT Button for all other segments
+                  <button
+                    onClick={handleNextClick}
+                    disabled={!currentRecording}
+                    className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
+                      !currentRecording
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-[#006b5e] hover:bg-[#005a4f]"
+                    }`}
+                  >
+                    <span>Next</span>
+                    <ArrowRight size={16} className="sm:size-[18px]" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </footer>
 
         {/* Result Modal - Made Responsive */}
@@ -860,7 +1057,7 @@ const PracticeDialogue = () => {
           size="lg"
           fullScreen={window.innerWidth < 768}
           radius={"lg"}
-          withCloseButton={false}
+          withCloseButton={true}
           centered
           overlayProps={{ blur: 3, opacity: 0.25 }}
         >
@@ -1202,7 +1399,7 @@ const PracticeDialogue = () => {
                 <Button
                   onClick={() => {
                     close();
-                    navigate("/user/dialogues");
+                    navigate("/user");
                   }}
                   color="teal"
                   size={window.innerWidth < 640 ? "sm" : "md"}

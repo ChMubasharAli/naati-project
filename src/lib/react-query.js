@@ -42,9 +42,15 @@ export const queryClient = new QueryClient({
 
 // Query keys for better organization
 export const queryKeys = {
+  admin: {
+    all: ["admin"],
+    dashboard: () => [...queryKeys.admin.all, "dashboard"],
+    users: () => [...queryKeys.admin.all, "users"],
+  },
   auth: {
     all: ["auth"],
     profile: () => [...queryKeys.auth.all, "profile"],
+    subscription: (userId) => [...queryKeys.auth.all, "subscription", userId],
   },
   languages: {
     all: ["languages"],

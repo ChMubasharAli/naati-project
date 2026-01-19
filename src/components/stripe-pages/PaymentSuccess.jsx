@@ -3,12 +3,14 @@ import { CheckCircle, ArrowRight, FileText } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import apiClient from "../../api/axios";
+import { useAuth } from "../../context/AuthContext";
 
 const PaymentSuccess = () => {
   const [loading, setLoading] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState("verifying");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { refreshSubscriptionStatus } = useAuth();
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -38,6 +40,16 @@ const PaymentSuccess = () => {
         // Check if payment was successful
         if (response.data && response.data.paid === true) {
           setVerificationStatus("success");
+
+          // 🔥 Refresh subscription status after successful payment
+          try {
+            await refreshSubscriptionStatus();
+            console.log("Subscription status refreshed successfully");
+          } catch (refreshError) {
+            console.error("Failed to refresh subscription:", refreshError);
+            // Continue anyway - backend mein update ho chuka hai
+          }
+
           toast.success("Payment verified successfully!");
         } else {
           throw new Error("Payment not verified");
@@ -56,7 +68,7 @@ const PaymentSuccess = () => {
 
     // Only verify once
     verifyPayment();
-  }, [searchParams]);
+  }, [searchParams, refreshSubscriptionStatus]);
 
   const handleGoToDashboard = () => {
     navigate("/user");
