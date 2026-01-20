@@ -76,7 +76,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5"
+              className="text-slate-400 cursor-pointer hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5"
             >
               <X size={20} />
             </button>
@@ -300,7 +300,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
                   color="gray"
                   radius="md"
                   onClick={close}
-                  className="border-white/10 text-white hover:bg-white/5 font-medium"
+                  className="border-white/10 cursor-pointer text-white hover:bg-white/5 font-medium"
                   size="sm"
                 >
                   Cancel

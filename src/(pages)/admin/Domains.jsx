@@ -175,7 +175,7 @@ const DomainsManagement = () => {
         <button
           onClick={handleCreate}
           disabled={isLoading}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+          className="flex cursor-pointer items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
         >
           <Plus size={18} />
           Add Domain
@@ -233,14 +233,14 @@ const DomainsManagement = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleEdit(domain)}
-                      className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                      className="p-2 cursor-pointer cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                       disabled={deleteMutation.isPending}
                     >
                       <Edit size={16} />
                     </button>
                     <button
                       onClick={() => handleDelete(domain.id)}
-                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-2 cursor-pointer text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       disabled={deleteMutation.isPending}
                     >
                       {deleteMutation.isPending &&
@@ -299,7 +299,7 @@ const DomainsManagement = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+                className="text-gray-400 cursor-pointer hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
               >
                 <X size={20} />
               </button>
@@ -425,7 +425,7 @@ const DomainsManagement = () => {
                   disabled={
                     createMutation.isPending || updateMutation.isPending
                   }
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50"
+                  className="flex-1 cursor-pointer px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -434,7 +434,7 @@ const DomainsManagement = () => {
                   disabled={
                     createMutation.isPending || updateMutation.isPending
                   }
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600"
+                  className="flex-1 px-4 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (
                     <span className="flex items-center justify-center gap-2">

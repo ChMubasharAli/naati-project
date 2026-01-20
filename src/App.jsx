@@ -32,6 +32,7 @@ import PaymentSuccess from "./components/stripe-pages/PaymentSuccess";
 import PaymentFailure from "./components/stripe-pages/PaymentFailure";
 import SubscriptionsManagement from "./(pages)/admin/Subscriptions";
 import TransactionsManagement from "./(pages)/admin/Transections";
+import UserMessages from "./(pages)/admin/UserMessages";
 
 export default function App() {
   return (
@@ -44,7 +45,6 @@ export default function App() {
           path="/"
           element={
             <LoginProtectedRoute>
-              {/* <LoginPage /> */}
               <Home />
             </LoginProtectedRoute>
           }
@@ -119,6 +119,7 @@ export default function App() {
             <Route path="users" element={<Users />} />
             <Route path="subscriptions" element={<SubscriptionsManagement />} />
             <Route path="transactions" element={<TransactionsManagement />} />
+            <Route path="user-messages" element={<UserMessages />} />
           </Route>
         </Route>
 

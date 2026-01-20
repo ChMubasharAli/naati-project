@@ -9,7 +9,6 @@ export const AdminProtectedRoute = () => {
   // get data from the context
   const { user: logedInUser, token } = useAuth();
 
-  console.log(logedInUser, token);
 
   if (!logedInUser || !token) {
     return <Navigate to={"/login"} replace />;

@@ -131,12 +131,12 @@ const Signup = () => {
         <div className="bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 p-8 md:p-10 shadow-2xl">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 backdrop-blur-sm rounded-full border border-emerald-500/20 mb-6">
+            {/* <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 backdrop-blur-sm rounded-full border border-emerald-500/20 mb-6">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-glow"></div>
               <span className="text-sm font-medium text-emerald-400">
                 Get Started
               </span>
-            </div>
+            </div> */}
             <h1 className="text-4xl font-bold text-white mb-3">
               Create Account
             </h1>
@@ -209,7 +209,7 @@ const Signup = () => {
               <div className="relative">
                 <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
-                  type="tel"
+                  type="text"
                   id="phone"
                   name="phone"
                   autoComplete="off"
@@ -248,7 +248,7 @@ const Signup = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-400 transition-colors"
+                  className="absolute cursor-pointer right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-400 transition-colors"
                   disabled={registerMutation.isPending}
                 >
                   {showPassword ? (
@@ -319,7 +319,7 @@ const Signup = () => {
             <button
               type="submit"
               disabled={registerMutation.isPending}
-              className="group cursor-pointer md:col-span-2 w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group cursor-pointer cursor-pointer md:col-span-2 w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {registerMutation.isPending
                 ? "Creating Account..."

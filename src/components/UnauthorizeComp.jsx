@@ -35,7 +35,7 @@ const Unauthorized = () => {
               </Link>
               <button
                 onClick={() => navigate(-1)}
-                className="inline-block px-6 py-3 border border-accent text-accent font-semibold rounded-md hover:bg-accent hover:text-white hover:border-accent-hover transition-all duration-200"
+                className="inline-block cursor-pointer px-6 py-3 border border-accent text-accent font-semibold rounded-md hover:bg-accent hover:text-white hover:border-accent-hover transition-all duration-200"
               >
                 Go Back
               </button>

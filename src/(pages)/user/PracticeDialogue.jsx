@@ -469,7 +469,7 @@ const PracticeDialogue = () => {
         <p className="text-gray-600 text-center">Please login to continue</p>
         <button
           onClick={() => navigate("/login")}
-          className="mt-4 px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+          className="mt-4 cursor-pointer px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
         >
           Go to Login
         </button>
@@ -494,7 +494,7 @@ const PracticeDialogue = () => {
         <p className="text-gray-600 text-center">No exam data found</p>
         <button
           onClick={() => navigate("/user/dialogues")}
-          className="mt-4 px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+          className="mt-4 cursor-pointer px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
         >
           Go Back
         </button>
@@ -652,7 +652,7 @@ const PracticeDialogue = () => {
                         </ul>
                         <button
                           onClick={() => navigate("/user/subscriptions")}
-                          className="mt-3 px-4 py-2 cursor-pointer bg-gradient-to-r from-red-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+                          className="mt-3 cursor-pointer px-4 py-2 cursor-pointer bg-gradient-to-r from-red-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
                         >
                           Upgrade to Premium
                         </button>
@@ -747,7 +747,7 @@ const PracticeDialogue = () => {
                   </p>
                   <button
                     onClick={() => navigate("/user/subscriptions")}
-                    className="px-6 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
+                    className="px-6 cursor-pointer py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
                   >
                     View Pricing Plans
                   </button>
@@ -778,6 +778,7 @@ const PracticeDialogue = () => {
                   playsInline
                   muted
                   className="w-full h-full object-cover"
+                  style={{ transform: 'scaleX(-1)' }}
                 />
               </div>
 
@@ -822,7 +823,7 @@ const PracticeDialogue = () => {
                           disabled={
                             isRecording || currentRecording || isAudioPlaying
                           }
-                          className={`px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto ${
+                          className={`px-3 cursor-pointer sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto ${
                             isRecording || currentRecording || isAudioPlaying
                               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                               : "bg-emerald-500 text-white hover:bg-emerald-600"
@@ -874,7 +875,7 @@ const PracticeDialogue = () => {
                         {isRecording && (
                           <button
                             onClick={stopRecording}
-                            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm w-full sm:w-auto justify-center"
+                            className="flex cursor-pointer items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm w-full sm:w-auto justify-center"
                           >
                             <Square size={14} className="sm:size-[16px]" />
                             Stop Recording
@@ -885,7 +886,7 @@ const PracticeDialogue = () => {
                         {showRetryButton && (
                           <button
                             onClick={handleRetry}
-                            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-[#006b5e] hover:bg-[#005a4f] text-white rounded-lg text-sm w-full sm:w-auto justify-center"
+                            className="flex cursor-pointer items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-[#006b5e] hover:bg-[#005a4f] text-white rounded-lg text-sm w-full sm:w-auto justify-center"
                           >
                             <RefreshCw size={14} className="sm:size-[16px]" />
                             Retry
@@ -943,7 +944,7 @@ const PracticeDialogue = () => {
                     </p>
                     <button
                       onClick={() => navigate("/user/subscriptions")}
-                      className="px-6 cursor-pointer py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
+                      className="px-6 cursor-pointer cursor-pointer py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
                     >
                       Unlock Premium
                     </button>
@@ -970,7 +971,7 @@ const PracticeDialogue = () => {
                       </div>
                       <button
                         disabled
-                        className="px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto bg-gray-300 text-gray-500 cursor-not-allowed"
+                        className="px-3 sm:px-4 cursor-pointer py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto bg-gray-300 text-gray-500 cursor-not-allowed"
                       >
                         <Play size={14} className="sm:size-[16px]" />
                         <span>Play Audio</span>
@@ -1003,7 +1004,7 @@ const PracticeDialogue = () => {
               <button
                 onClick={handlePreviousClick}
                 disabled={currentSegmentIndex === 0 || isSubmittingFinal}
-                className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
+                className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
                   currentSegmentIndex === 0 || isSubmittingFinal
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-emerald-600 hover:bg-emerald-700"
@@ -1019,7 +1020,7 @@ const PracticeDialogue = () => {
                   <button
                     onClick={handleFinishClick}
                     disabled={!currentRecording || isSubmittingFinal}
-                    className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
+                    className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
                       !currentRecording || isSubmittingFinal
                         ? "bg-gray-400 cursor-not-allowed"
                         : "bg-emerald-600 hover:bg-emerald-700"
@@ -1033,7 +1034,7 @@ const PracticeDialogue = () => {
                   <button
                     onClick={handleNextClick}
                     disabled={!currentRecording}
-                    className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
+                    className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
                       !currentRecording
                         ? "bg-gray-400 cursor-not-allowed"
                         : "bg-[#006b5e] hover:bg-[#005a4f]"
@@ -1395,7 +1396,7 @@ const PracticeDialogue = () => {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200">
+              <div className="flex justify-end cursor-pointer gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200">
                 <Button
                   onClick={() => {
                     close();

@@ -59,7 +59,7 @@ const Navbar = () => {
           <div className="hidden lg:flex items-center gap-4">
             <button
               onClick={() => (window.location.href = "/login")}
-              className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-emerald-500/50 text-base"
+              className="px-6 py-2.5 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-emerald-500/50 text-base"
             >
               Login
             </button>
@@ -68,7 +68,7 @@ const Navbar = () => {
           {/* Mobile Menu Button - Visible only on mobile */}
           <button
             onClick={toggleMobileMenu}
-            className="lg:hidden text-slate-300 hover:text-emerald-400 transition-colors p-2"
+            className="lg:hidden cursor-pointer text-slate-300 hover:text-emerald-400 transition-colors p-2"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
@@ -93,25 +93,11 @@ const Navbar = () => {
                   Home
                 </Link>
                 <Link
-                  to="/practice"
+                  to="/subscriptions"
                   className="block text-slate-300 hover:text-emerald-400 transition-colors font-medium py-3 px-4 hover:bg-white/5 rounded-lg text-base"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  Practice
-                </Link>
-                <Link
-                  to="/mock-test"
-                  className="block text-slate-300 hover:text-emerald-400 transition-colors font-medium py-3 px-4 hover:bg-white/5 rounded-lg text-base"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Mock Test
-                </Link>
-                <Link
-                  to="/naati-course"
-                  className="block text-slate-300 hover:text-emerald-400 transition-colors font-medium py-3 px-4 hover:bg-white/5 rounded-lg text-base"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Naati Course
+                  Subscriptions
                 </Link>
                 <Link
                   to="/contact-us"
@@ -128,7 +114,7 @@ const Navbar = () => {
                   window.location.href = "/login";
                   setIsMobileMenuOpen(false);
                 }}
-                className="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-emerald-500/50 text-base"
+                className="w-full px-6 cursor-pointer py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-emerald-500/50 text-base"
               >
                 Login
               </button>

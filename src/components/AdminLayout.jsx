@@ -12,6 +12,7 @@ import {
   Users,
   CreditCard,
   ArrowLeftRight,
+  MessageCircle,
 } from "lucide-react";
 
 export default function AdminLayout() {
@@ -36,6 +37,8 @@ export default function AdminLayout() {
     { name: "Subscriptions", icon: CreditCard, href: "subscriptions" },
 
     { name: "Transactions", icon: ArrowLeftRight, href: "transactions" },
+
+    { name: "User-Messages", icon: MessageCircle, href: "user-messages" },
   ];
 
   return (

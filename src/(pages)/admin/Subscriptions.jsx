@@ -185,7 +185,7 @@ const SubscriptionsManagement = () => {
         <button
           onClick={() => refetch()}
           disabled={isLoading}
-          className="px-4 py-2 bg-emerald-50 text-emerald-700 font-medium rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-2 disabled:opacity-50"
+          className="px-4 py-2 cursor-pointer bg-emerald-50 text-emerald-700 font-medium rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-2 disabled:opacity-50"
         >
           <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
           {isLoading ? "Refreshing..." : "Refresh"}
@@ -203,7 +203,7 @@ const SubscriptionsManagement = () => {
           </div>
           <button
             onClick={() => refetch()}
-            className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"
+            className="mt-2 text-sm cursor-pointer text-red-600 hover:text-red-800 font-medium"
           >
             Retry
           </button>
@@ -322,7 +322,7 @@ const SubscriptionsManagement = () => {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => handleView(item)}
-                        className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50"
+                        className="p-2 text-gray-600 cursor-pointer hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50"
                         title="View Details"
                         disabled={
                           updateMutation.isPending || deleteMutation.isPending
@@ -332,7 +332,7 @@ const SubscriptionsManagement = () => {
                       </button>
                       <button
                         onClick={() => handleDelete(item.subscription.id)}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                        className="p-2 text-gray-600 cursor-pointer hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
                         title="Delete"
                         disabled={deleteMutation.isPending}
                       >
@@ -387,7 +387,7 @@ const SubscriptionsManagement = () => {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
                 disabled={updateMutation.isPending}
               >
                 <X size={20} />
@@ -509,7 +509,7 @@ const SubscriptionsManagement = () => {
                     <button
                       type="button"
                       onClick={() => setModalMode("view")}
-                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
+                      className="flex-1 px-4 py-3 cursor-pointer border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
                       disabled={updateMutation.isPending}
                     >
                       Cancel
@@ -517,7 +517,7 @@ const SubscriptionsManagement = () => {
                     <button
                       type="submit"
                       disabled={updateMutation.isPending}
-                      className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {updateMutation.isPending ? (
                         <>
@@ -534,13 +534,13 @@ const SubscriptionsManagement = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all"
+                    className="flex-1 px-4 py-3 border cursor-pointer border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all"
                   >
                     Close
                   </button>
                   <button
                     onClick={handleEdit}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all"
+                    className="flex-1 px-4 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all"
                   >
                     Edit Subscription
                   </button>

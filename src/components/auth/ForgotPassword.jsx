@@ -111,12 +111,12 @@ const ForgotPassword = () => {
             <>
               {/* Header */}
               <div className="text-center mb-8">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 backdrop-blur-sm rounded-full border border-emerald-500/20 mb-6">
+                {/* <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 backdrop-blur-sm rounded-full border border-emerald-500/20 mb-6">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-glow"></div>
                   <span className="text-sm font-medium text-emerald-400">
                     Password Recovery
                   </span>
-                </div>
+                </div> */}
                 <h1 className="text-4xl font-bold text-white mb-3">
                   Forgot Password?
                 </h1>
@@ -155,7 +155,7 @@ const ForgotPassword = () => {
                 <button
                   type="submit"
                   disabled={forgotPasswordMutation.isPending}
-                  className="group w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group w-full py-4 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {forgotPasswordMutation.isPending
                     ? "Sending..."
@@ -170,7 +170,7 @@ const ForgotPassword = () => {
               <div className="mt-8 text-center">
                 <button
                   onClick={handleBackToLogin}
-                  className="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors group"
+                  className="inline-flex cursor-pointer items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors group"
                 >
                   <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                   <span className="text-sm font-medium">Back to Sign In</span>
@@ -213,7 +213,7 @@ const ForgotPassword = () => {
                 {/* Continue Button */}
                 <button
                   onClick={handleContinue}
-                  className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/50 flex items-center justify-center gap-2"
+                  className="w-full py-4 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/50 flex items-center justify-center gap-2"
                 >
                   Continue to Reset Password
                   <ArrowRight className="w-5 h-5" />
@@ -236,7 +236,7 @@ const ForgotPassword = () => {
                 <button
                   onClick={() => forgotPasswordMutation.mutate(email)}
                   disabled={forgotPasswordMutation.isPending}
-                  className="mt-6 text-emerald-400 hover:text-emerald-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-6 cursor-pointer text-emerald-400 hover:text-emerald-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {forgotPasswordMutation.isPending
                     ? "Resending..."

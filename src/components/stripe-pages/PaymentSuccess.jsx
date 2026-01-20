@@ -152,7 +152,7 @@ const PaymentSuccess = () => {
             <div className="space-y-4">
               <button
                 onClick={() => navigate("/")}
-                className="w-full py-4 bg-gradient-to-r from-red-500 to-rose-500 text-white font-semibold rounded-xl hover:scale-[1.02] transition-all"
+                className="w-full cursor-pointer py-4 bg-gradient-to-r from-red-500 to-rose-500 text-white font-semibold rounded-xl hover:scale-[1.02] transition-all"
               >
                 Return to Home
               </button>
@@ -204,7 +204,7 @@ const PaymentSuccess = () => {
           <div className="space-y-4">
             <button
               onClick={handleGoToDashboard}
-              className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
             >
               Go to Dashboard
               <ArrowRight className="w-5 h-5" />

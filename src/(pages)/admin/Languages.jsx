@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Globe, Search, X, RefreshCw } from "lucide-react";
 import { toast } from "react-toastify";
+import { Select } from "@mantine/core";
 
 // Import API functions
 import {
@@ -12,6 +13,81 @@ import {
   deleteLanguage,
 } from "../../api/languages";
 import { showSuccessToast, queryKeys } from "../../lib/react-query";
+
+// Languages data with codes
+const LANGUAGES_DATA = {
+  Afrikaans: "af",
+  Arabic: "ar",
+  Armenian: "hy",
+  Azerbaijani: "az",
+  Belarusian: "be",
+  Bosnian: "bs",
+  Bulgarian: "bg",
+  Catalan: "ca",
+  Chinese: "zh",
+  Croatian: "hr",
+  Czech: "cs",
+  Danish: "da",
+  Dutch: "nl",
+  English: "en",
+  Estonian: "et",
+  Finnish: "fi",
+  French: "fr",
+  Galician: "gl",
+  German: "de",
+  Greek: "el",
+  Hebrew: "he",
+  Hindi: "hi",
+  Hungarian: "hu",
+  Icelandic: "is",
+  Indonesian: "id",
+  Italian: "it",
+  Japanese: "ja",
+  Kannada: "kn",
+  Kazakh: "kk",
+  Korean: "ko",
+  Latvian: "lv",
+  Lithuanian: "lt",
+  Macedonian: "mk",
+  Malay: "ms",
+  Marathi: "mr",
+  Maori: "mi",
+  Nepali: "ne",
+  Norwegian: "no",
+  Persian: "fa",
+  Polish: "pl",
+  Portuguese: "pt",
+  Romanian: "ro",
+  Russian: "ru",
+  Serbian: "sr",
+  Slovak: "sk",
+  Slovenian: "sl",
+  Spanish: "es",
+  Swahili: "sw",
+  Swedish: "sv",
+  Tagalog: "tl",
+  Tamil: "ta",
+  Thai: "th",
+  Turkish: "tr",
+  Ukrainian: "uk",
+  Urdu: "ur",
+  Vietnamese: "vi",
+  Welsh: "cy",
+};
+
+// Convert to array for Select component
+const LANGUAGES_OPTIONS = Object.entries(LANGUAGES_DATA).map(
+  ([name, code]) => ({
+    value: name,
+    label: name,
+    code: code,
+  }),
+);
+
+// Function to find language code by name
+const getLanguageCodeByName = (languageName) => {
+  return LANGUAGES_DATA[languageName] || "";
+};
 
 const LanguagesManagement = () => {
   const queryClient = useQueryClient();
@@ -118,6 +194,49 @@ const LanguagesManagement = () => {
   };
 
   /**
+   * Handle language selection from dropdown
+   */
+  const handleLanguageSelect = (selectedLanguageName) => {
+    if (selectedLanguageName) {
+      // Check if this language already exists in database (except current editing one)
+      const existingLanguage = languagesArray.find(
+        (lang) =>
+          lang.name.toLowerCase() === selectedLanguageName.toLowerCase() &&
+          (modalMode === "create" || lang.id !== selectedLanguage?.id),
+      );
+
+      if (existingLanguage && modalMode === "create") {
+        toast.error(`"${selectedLanguageName}" already exists in the database`);
+        setFormData({ name: "", langCode: "" });
+        return;
+      }
+
+      if (existingLanguage && modalMode === "edit") {
+        toast.error(`"${selectedLanguageName}" already exists in the database`);
+        return;
+      }
+
+      // Get the code from LANGUAGES_DATA
+      const languageCode = getLanguageCodeByName(selectedLanguageName);
+
+      if (languageCode) {
+        setFormData({
+          name: selectedLanguageName,
+          langCode: languageCode,
+        });
+      } else {
+        // If language not in predefined list (for custom entries)
+        setFormData((prev) => ({
+          ...prev,
+          name: selectedLanguageName,
+        }));
+      }
+    } else {
+      setFormData({ name: "", langCode: "" });
+    }
+  };
+
+  /**
    * Handle form submission
    */
   const handleSubmit = async (e) => {
@@ -125,13 +244,39 @@ const LanguagesManagement = () => {
 
     // Validation
     if (!formData.name.trim()) {
-      toast.error("Please enter language name");
+      toast.error("Please select a language");
       return;
     }
 
     if (!formData.langCode.trim()) {
-      toast.error("Please enter language code");
+      toast.error("Language code is required");
       return;
+    }
+
+    // Check for duplicate language name (for create mode)
+    if (modalMode === "create") {
+      const existingLanguage = languagesArray.find(
+        (lang) => lang.name.toLowerCase() === formData.name.toLowerCase(),
+      );
+
+      if (existingLanguage) {
+        toast.error(`"${formData.name}" already exists in the database`);
+        return;
+      }
+    }
+
+    // Check for duplicate language name (for edit mode - different ID)
+    if (modalMode === "edit") {
+      const existingLanguage = languagesArray.find(
+        (lang) =>
+          lang.name.toLowerCase() === formData.name.toLowerCase() &&
+          lang.id !== selectedLanguage.id,
+      );
+
+      if (existingLanguage) {
+        toast.error(`"${formData.name}" already exists in the database`);
+        return;
+      }
     }
 
     // Clean data
@@ -194,7 +339,7 @@ const LanguagesManagement = () => {
         <button
           onClick={handleCreate}
           disabled={createMutation.isPending}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex cursor-pointer items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={18} />
           Add Language
@@ -209,7 +354,7 @@ const LanguagesManagement = () => {
           </p>
           <button
             onClick={() => refetchLanguages()}
-            className="mt-2 text-red-600 hover:text-red-800 text-sm font-medium"
+            className="mt-2 cursor-pointer text-red-600 hover:text-red-800 text-sm font-medium"
           >
             Retry
           </button>
@@ -299,7 +444,7 @@ const LanguagesManagement = () => {
                       <button
                         onClick={() => handleEdit(language)}
                         disabled={deleteMutation.isPending}
-                        className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Edit"
                       >
                         <Edit size={18} />
@@ -307,7 +452,7 @@ const LanguagesManagement = () => {
                       <button
                         onClick={() => handleDelete(language.id)}
                         disabled={deleteMutation.isPending}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 cursor-pointer text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Delete"
                       >
                         <Trash2 size={18} />
@@ -346,7 +491,7 @@ const LanguagesManagement = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 disabled={isMutationLoading}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X size={20} />
               </button>
@@ -356,23 +501,50 @@ const LanguagesManagement = () => {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               <div>
                 <label
-                  htmlFor="name"
+                  htmlFor="language-select"
                   className="block text-sm font-semibold text-gray-700 mb-2"
                 >
                   Language Name *
                 </label>
-                <input
-                  type="text"
-                  id="name"
+                <Select
+                  id="language-select"
+                  placeholder="Select a language"
+                  searchable
+                  nothingFoundMessage="No language found"
+                  data={LANGUAGES_OPTIONS}
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="e.g., English"
-                  required
+                  onChange={handleLanguageSelect}
+                  className="w-full"
                   disabled={isMutationLoading}
+                  styles={{
+                    input: {
+                      padding: "12px 16px",
+                      fontSize: "14px",
+                      borderColor: "#D1D5DB",
+                      "&:focus": {
+                        borderColor: "#10B981",
+                        boxShadow: "0 0 0 2px rgba(16, 185, 129, 0.2)",
+                      },
+                    },
+                    dropdown: {
+                      borderColor: "#D1D5DB",
+                    },
+                    item: {
+                      "&[data-selected]": {
+                        backgroundColor: "#10B981",
+                        "&:hover": {
+                          backgroundColor: "#059669",
+                        },
+                      },
+                    },
+                  }}
                 />
+                {modalMode === "edit" && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    You can change the language name. The code will update
+                    automatically.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -382,22 +554,37 @@ const LanguagesManagement = () => {
                 >
                   Language Code *
                 </label>
-                <input
-                  type="text"
-                  id="langCode"
-                  value={formData.langCode}
-                  onChange={(e) =>
-                    setFormData({ ...formData, langCode: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="e.g., en"
-                  required
-                  maxLength="10"
-                  disabled={isMutationLoading}
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    id="langCode"
+                    value={formData.langCode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, langCode: e.target.value })
+                    }
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="Auto-filled based on language selection"
+                    required
+                    maxLength="10"
+                    disabled={isMutationLoading}
+                  />
+                  {formData.name && !getLanguageCodeByName(formData.name) && (
+                    <span className="text-xs text-amber-600 whitespace-nowrap">
+                      Custom code
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  ISO 639-1 code (2 letters)
+                  ISO 639-1 code (auto-filled when selecting from list)
                 </p>
+                {modalMode === "edit" &&
+                  formData.name &&
+                  getLanguageCodeByName(formData.name) && (
+                    <p className="text-xs text-emerald-600 mt-1">
+                      ✓ Code will update automatically when you change the
+                      language
+                    </p>
+                  )}
               </div>
 
               {/* Modal Actions */}
@@ -406,14 +593,14 @@ const LanguagesManagement = () => {
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   disabled={isMutationLoading}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 cursor-pointer py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isMutationLoading}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="flex-1 px-4 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                   {isMutationLoading ? (
                     <>

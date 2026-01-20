@@ -65,7 +65,7 @@ const ErrorState = ({ error, refetch }) => (
       </p>
       <button
         onClick={() => refetch()}
-        className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg"
+        className="px-6 py-2.5 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg"
       >
         Retry
       </button>

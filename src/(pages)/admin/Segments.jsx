@@ -319,7 +319,7 @@ const SegmentsManagement = () => {
         <button
           onClick={handleCreate}
           disabled={dialogues.length === 0}
-          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex cursor-pointer items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={18} />
           Add Segment
@@ -445,7 +445,7 @@ const SegmentsManagement = () => {
                               "audio",
                             )
                           }
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg ${
+                          className={`flex cursor-pointer items-center gap-1 px-3 py-1.5 rounded-lg ${
                             audioPlaying
                               ? "bg-emerald-600 text-white"
                               : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
@@ -481,7 +481,7 @@ const SegmentsManagement = () => {
                               "suggested",
                             )
                           }
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg ${
+                          className={`flex cursor-pointer items-center gap-1 px-3 py-1.5 rounded-lg ${
                             suggestedPlaying
                               ? "bg-teal-600 text-white"
                               : "bg-teal-100 text-teal-700 hover:bg-teal-200"
@@ -512,7 +512,7 @@ const SegmentsManagement = () => {
                         <button
                           onClick={() => handleEdit(segment)}
                           disabled={deleteMutation.isPending}
-                          className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-2 cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Edit"
                         >
                           <Edit size={18} />
@@ -520,7 +520,7 @@ const SegmentsManagement = () => {
                         <button
                           onClick={() => handleDelete(segment.id)}
                           disabled={deleteMutation.isPending}
-                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-2 cursor-pointer text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Delete"
                         >
                           <Trash2 size={18} />
@@ -564,7 +564,7 @@ const SegmentsManagement = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                className="text-gray-400 cursor-pointer hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -680,7 +680,7 @@ const SegmentsManagement = () => {
                   disabled={
                     createMutation.isPending || updateMutation.isPending
                   }
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 cursor-pointer py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -689,7 +689,7 @@ const SegmentsManagement = () => {
                   disabled={
                     createMutation.isPending || updateMutation.isPending
                   }
-                  className="flex-1 px-4 py-3 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 px-4 cursor-pointer py-3 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (
                     <>

@@ -85,7 +85,7 @@ const PaymentFailure = () => {
           <div className="space-y-4">
             <button
               onClick={handleTryAgain}
-              className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-5 h-5" />
               Try Again with Different Plan

@@ -327,7 +327,7 @@ const UsersManagement = () => {
         <button
           onClick={handleCreate}
           disabled={usersLoading}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex cursor-pointer items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={18} />
           Add User
@@ -475,7 +475,7 @@ const UsersManagement = () => {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => handleEdit(user)}
-                        className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                        className="p-2 cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                         title="Edit User"
                         disabled={deleteMutation.isPending}
                       >
@@ -483,7 +483,7 @@ const UsersManagement = () => {
                       </button>
                       <button
                         onClick={() => handleDelete(user.id)}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        className="p-2 cursor-pointer text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                         title="Delete User"
                         disabled={deleteMutation.isPending}
                       >
@@ -526,7 +526,7 @@ const UsersManagement = () => {
             <button
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex cursor-pointer items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft size={16} />
               Previous
@@ -538,7 +538,7 @@ const UsersManagement = () => {
                 <button
                   key={pageNum}
                   onClick={() => handlePageClick(pageNum)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                  className={`w-8 cursor-pointer h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                     currentPage === pageNum
                       ? "bg-emerald-500 text-white hover:bg-emerald-600"
                       : "text-gray-700 hover:bg-gray-100"
@@ -557,7 +557,7 @@ const UsersManagement = () => {
               {totalPages > 5 && currentPage < totalPages - 2 && (
                 <button
                   onClick={() => handlePageClick(totalPages)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                  className={`w-8 cursor-pointer h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                     currentPage === totalPages
                       ? "bg-emerald-500 text-white hover:bg-emerald-600"
                       : "text-gray-700 hover:bg-gray-100"
@@ -572,7 +572,7 @@ const UsersManagement = () => {
             <button
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex cursor-pointer items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
               <ChevronRight size={16} />
@@ -593,7 +593,7 @@ const UsersManagement = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -702,7 +702,7 @@ const UsersManagement = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="absolute cursor-pointer right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                       disabled={
                         createMutation.isPending || updateMutation.isPending
                       }
@@ -800,7 +800,7 @@ const UsersManagement = () => {
                   disabled={
                     createMutation.isPending || updateMutation.isPending
                   }
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 cursor-pointer px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -809,7 +809,7 @@ const UsersManagement = () => {
                   disabled={
                     createMutation.isPending || updateMutation.isPending
                   }
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (
                     <span className="flex items-center justify-center gap-2">

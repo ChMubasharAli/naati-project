@@ -214,7 +214,7 @@ const TransactionsManagement = () => {
         <button
           onClick={() => refetchTransactions()}
           disabled={isTransactionsLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex cursor-pointer items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCw
             size={18}
@@ -350,7 +350,7 @@ const TransactionsManagement = () => {
                       <button
                         onClick={() => handleView(transaction)}
                         disabled={deleteTransactionMutation.isPending}
-                        className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50"
+                        className="p-2 cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50"
                         title="View Details"
                       >
                         <Eye size={18} />
@@ -358,7 +358,7 @@ const TransactionsManagement = () => {
                       <button
                         onClick={() => handleDelete(transaction.id)}
                         disabled={deleteTransactionMutation.isPending}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                        className="p-2 cursor-pointer text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
                         title="Delete"
                       >
                         <Trash2 size={18} />
@@ -404,7 +404,7 @@ const TransactionsManagement = () => {
               <button
                 onClick={() => setIsModalOpen(false)}
                 disabled={updateTransactionMutation.isPending}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"
               >
                 <X size={20} />
               </button>
@@ -528,14 +528,14 @@ const TransactionsManagement = () => {
                       type="button"
                       onClick={() => setModalMode("view")}
                       disabled={updateTransactionMutation.isPending}
-                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
+                      className="flex-1 cursor-pointer px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={updateTransactionMutation.isPending}
-                      className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex-1 cursor-pointer px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {updateTransactionMutation.isPending ? (
                         <>
@@ -552,13 +552,13 @@ const TransactionsManagement = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all"
+                    className="flex-1 cursor-pointer px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all"
                   >
                     Close
                   </button>
                   <button
                     onClick={handleEdit}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all flex items-center justify-center gap-2"
                   >
                     <Edit size={18} />
                     Edit Transaction

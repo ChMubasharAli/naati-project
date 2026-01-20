@@ -174,7 +174,7 @@ const AudioInput = ({
               type="button"
               onClick={togglePlay}
               disabled={disabled || uploadMutation.isPending}
-              className="p-2 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              className="p-2 cursor-pointer bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:opacity-50 transition-colors"
             >
               {isPlaying ? <Pause size={16} /> : <Play size={16} />}
             </button>
@@ -194,7 +194,7 @@ const AudioInput = ({
             type="button"
             onClick={handleRemoveAudio}
             disabled={disabled || uploadMutation.isPending}
-            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+            className="p-1 cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
           >
             <X size={16} />
           </button>
@@ -247,7 +247,7 @@ const AudioInput = ({
             type="button"
             onClick={isRecording ? stopRecording : startRecording}
             disabled={disabled || uploadMutation.isPending}
-            className={`flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg transition-colors ${
+            className={`flex cursor-pointer items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg transition-colors ${
               isRecording
                 ? "bg-red-500 text-white hover:bg-red-600"
                 : "bg-red-50 border border-red-200 text-red-700 hover:bg-red-100"
