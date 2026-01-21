@@ -95,7 +95,7 @@ const PracticeDialogue = () => {
     // ✅ Early return conditions
     if (!dialogueId || !userId) {
       console.error("Missing dialogue ID or user ID");
-      navigate("/user/dialogues");
+      navigate("/user");
       return;
     }
 
@@ -493,7 +493,7 @@ const PracticeDialogue = () => {
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
         <p className="text-gray-600 text-center">No exam data found</p>
         <button
-          onClick={() => navigate("/user/dialogues")}
+          onClick={() => navigate("/user")}
           className="mt-4 cursor-pointer px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
         >
           Go Back
@@ -554,10 +554,7 @@ const PracticeDialogue = () => {
         {/* Breadcrumb & Progress Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-b border-gray-100 text-[10px] sm:text-[11px] text-gray-500">
           <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-0 flex-wrap">
-            <span
-              className="cursor-pointer"
-              onClick={() => navigate("/user/dialogues")}
-            >
+            <span className="cursor-pointer" onClick={() => navigate("/user")}>
               🏠
             </span>
             <span className="hidden xs:inline">
@@ -778,7 +775,7 @@ const PracticeDialogue = () => {
                   playsInline
                   muted
                   className="w-full h-full object-cover"
-                  style={{ transform: 'scaleX(-1)' }}
+                  style={{ transform: "scaleX(-1)" }}
                 />
               </div>
 

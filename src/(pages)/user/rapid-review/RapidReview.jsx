@@ -126,7 +126,7 @@ const PracticeDialogue = () => {
     // ✅ Early return conditions
     if (!dialogueId || !userId) {
       console.error("Missing dialogue ID or user ID");
-      navigate("/user/dialogues");
+      navigate("/user/rapid-review");
       return;
     }
 
@@ -139,7 +139,7 @@ const PracticeDialogue = () => {
       alert(
         "You have used your 5 daily rapid reviews. Upgrade to premium for unlimited access.",
       );
-      navigate("/user/dialogues");
+      navigate("/user/rapid-review");
       return;
     }
 
@@ -196,7 +196,7 @@ const PracticeDialogue = () => {
       } catch (error) {
         console.error("Failed to initialize exam:", error);
         alert("Failed to start exam. Please try again.");
-        navigate("/user/dialogues");
+        navigate("/user/rapid-review");
       } finally {
         setIsLoading(false);
         initializationInProgressRef.current = false;
@@ -489,7 +489,7 @@ const PracticeDialogue = () => {
     } else {
       // If last segment, redirect to dialogues
       localStorage.removeItem("examData");
-      navigate("/user/dialogues");
+      navigate("/user/rapid-review");
     }
   };
 
@@ -645,7 +645,7 @@ const PracticeDialogue = () => {
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
         <p className="text-gray-600 text-center">No exam data found</p>
         <button
-          onClick={() => navigate("/user/dialogues")}
+          onClick={() => navigate("/user/rapid-review")}
           className="mt-4 px-6 py-2 cursor-pointer bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
         >
           Go Back
@@ -737,7 +737,7 @@ const PracticeDialogue = () => {
           <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-0 flex-wrap">
             <span
               className="cursor-pointer"
-              onClick={() => navigate("/user/dialogues")}
+              onClick={() => navigate("/user/rapid-review")}
             >
               🏠
             </span>
