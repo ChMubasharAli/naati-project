@@ -77,10 +77,13 @@ const LanguageSwitcher = () => {
   };
 
   return (
-    <>
-      <p className="text-emerald-400 text-sm mb-1">Switch Language</p>
+    <section className="flex flex-col items-center ">
+      <p className="text-emerald-400 w-full text-left text-sm mb-1">
+        Switch Language
+      </p>
       <Select
         placeholder="Select Language"
+        className="!w-full"
         searchable
         nothingFoundMessage="No language found"
         data={languageOptions}
@@ -94,7 +97,7 @@ const LanguageSwitcher = () => {
         allowDeselect={false}
         disabled={isLoading}
       />
-    </>
+    </section>
   );
 };
 

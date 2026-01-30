@@ -271,7 +271,8 @@ const UserSubscriptions = () => {
                       </div>
                       <div>
                         <div className="text-sm font-semibold text-gray-900">
-                          {item?.language?.name || "Unknown Language"}
+                          {item?.subscription?.language?.name ||
+                            "Unknown Language"}
                         </div>
                       </div>
                     </div>

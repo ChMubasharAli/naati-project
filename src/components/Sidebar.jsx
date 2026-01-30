@@ -84,8 +84,9 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
           </div>
 
           {/* Mobile Navigation */}
-          <nav className="flex-1 px-4 py-6 overflow-y-auto">
-            <ul className="space-y-2">
+          <nav className="flex-1 px-4 py-2 overflow-y-auto">
+            {logedInUser.role === "user" && <LanguageSwitcher />}
+            <ul className="space-y-2 mt-3">
               {menuItems?.map((item) => (
                 <li key={item.name}>
                   <NavLink

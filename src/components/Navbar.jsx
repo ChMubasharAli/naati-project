@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Brain, Menu, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -58,7 +60,7 @@ const Navbar = () => {
           {/* Desktop Login Button - Hidden on mobile */}
           <div className="hidden lg:flex items-center gap-4">
             <button
-              onClick={() => (window.location.href = "/login")}
+              onClick={() => navigate("/login")}
               className="px-6 py-2.5 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-emerald-500/50 text-base"
             >
               Login
@@ -111,7 +113,7 @@ const Navbar = () => {
               {/* Mobile Login Button */}
               <button
                 onClick={() => {
-                  window.location.href = "/login";
+                  navigate("/login");
                   setIsMobileMenuOpen(false);
                 }}
                 className="w-full px-6 cursor-pointer py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-emerald-500/50 text-base"

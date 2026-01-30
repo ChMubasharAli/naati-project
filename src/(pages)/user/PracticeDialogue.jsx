@@ -123,7 +123,7 @@ const PracticeDialogue = () => {
 
     try {
       const response = await fetch(
-        `/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}`,
+        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}`,
         {
           method: "GET",
           headers: {
@@ -153,7 +153,7 @@ const PracticeDialogue = () => {
 
       try {
         const response = await fetch(
-          `/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}/increment`,
+          `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}/increment`,
           {
             method: "PATCH",
             headers: {
