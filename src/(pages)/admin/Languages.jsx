@@ -13,6 +13,7 @@ import {
   deleteLanguage,
 } from "../../api/languages";
 import { showSuccessToast, queryKeys } from "../../lib/react-query";
+import { useNavigate } from "react-router-dom";
 
 // Languages data with codes
 const LANGUAGES_DATA = {
@@ -90,6 +91,7 @@ const getLanguageCodeByName = (languageName) => {
 };
 
 const LanguagesManagement = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -183,15 +185,15 @@ const LanguagesManagement = () => {
   /**
    * Open modal for editing existing language
    */
-  const handleEdit = (language) => {
-    setModalMode("edit");
-    setFormData({
-      name: language.name || "",
-      langCode: language.langCode || "",
-    });
-    setSelectedLanguage(language);
-    setIsModalOpen(true);
-  };
+  // const handleEdit = (language) => {
+  //   setModalMode("edit");
+  //   setFormData({
+  //     name: language.name || "",
+  //     langCode: language.langCode || "",
+  //   });
+  //   setSelectedLanguage(language);
+  //   setIsModalOpen(true);
+  // };
 
   /**
    * Handle language selection from dropdown
@@ -324,7 +326,7 @@ const LanguagesManagement = () => {
     createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 bg-white  max-h-[calc(100vh-64px)] lg:max-h-screen h-full flex flex-col overflow-hidden ">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
@@ -377,9 +379,9 @@ const LanguagesManagement = () => {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto  rounded-lg border border-gray-200  flex-1">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 left-0">
             <tr>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Name
@@ -422,7 +424,15 @@ const LanguagesManagement = () => {
               filteredLanguages.map((language) => (
                 <tr
                   key={language.id}
-                  className="hover:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    navigate("/admin/domains", {
+                      state: {
+                        languageName: language.name,
+                        languageId: language.id,
+                      },
+                    });
+                  }}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
@@ -441,16 +451,22 @@ const LanguagesManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleEdit(language)}
+                      {/* <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(language);
+                        }}
                         disabled={deleteMutation.isPending}
                         className="p-2 cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Edit"
                       >
                         <Edit size={18} />
-                      </button>
+                      </button> */}
                       <button
-                        onClick={() => handleDelete(language.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(language.id);
+                        }}
                         disabled={deleteMutation.isPending}
                         className="p-2 cursor-pointer text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Delete"

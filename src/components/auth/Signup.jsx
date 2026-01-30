@@ -1,7 +1,7 @@
 // src/components/Signup.jsx
 import React, { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Mail,
@@ -21,7 +21,10 @@ import { registerUser } from "../../api/auth";
 import { queryKeys, showSuccessToast } from "../../lib/react-query";
 import { fetchLanguages } from "../../api/languages";
 
+import { useAuth } from "../../context/AuthContext";
+
 const Signup = () => {
+  const { updateUserLanguage } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -44,6 +47,9 @@ const Signup = () => {
     onSuccess: (data) => {
       // Show success toast notification
       showSuccessToast(data.message || "Account created successfully!");
+
+      // set user language to the local storage
+      updateUserLanguage(data.data.user.preferredLanguage);
 
       // Store email for OTP verification
       localStorage.setItem("verifyEmail", formData.email);
@@ -333,12 +339,12 @@ const Signup = () => {
           {/* Login link */}
           <p className="text-center mt-8 text-slate-400">
             Already have an account?{" "}
-            <a
-              href="/login"
+            <Link
+              to="/login"
               className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
             >
               Sign in
-            </a>
+            </Link>
           </p>
         </div>
       </div>

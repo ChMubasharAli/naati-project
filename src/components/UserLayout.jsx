@@ -4,7 +4,15 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import Header from "./Header";
 
-import { CreditCard, MessageSquare, Zap } from "lucide-react";
+import {
+  BookOpen,
+  ClipboardCheck,
+  CreditCard,
+  Home,
+  Layers,
+  MessageSquare,
+  Zap,
+} from "lucide-react";
 
 export default function UserLayout() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,11 +21,23 @@ export default function UserLayout() {
   });
 
   const menuItems = [
-    { name: "Practice-Dialogue", icon: MessageSquare, href: ".", end: true },
+    { name: "Dashboard", icon: Home, href: ".", end: true },
+
+    { name: "Vocabulary", icon: BookOpen, href: "vocabulary" },
+
+    { name: "Dialogues", icon: MessageSquare, href: "dialogues" },
+
+    { name: "Mock Test", icon: ClipboardCheck, href: "mock-test" },
 
     { name: "Rapid Review", icon: Zap, href: "rapid-review" },
 
     { name: "Buy Subscriptions", icon: CreditCard, href: "subscriptions" },
+
+    {
+      name: "User Subscriptions",
+      icon: Layers,
+      href: "user-subscriptions",
+    },
   ];
 
   return (
@@ -30,8 +50,8 @@ export default function UserLayout() {
         menuItems={menuItems}
       />
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col px-4 overflow-auto bg-gray-100`}>
-        <div className=" sticky top-0 left-0 py-2 z-40 rounded-2xl ">
+      <div className={`flex-1 flex flex-col  overflow-auto bg-gray-100`}>
+        <div className=" sticky top-0 left-0  z-40 rounded-2xl ">
           <Header
             setIsOpen={setIsOpen}
             isOpen={isOpen}

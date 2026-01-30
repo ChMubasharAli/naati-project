@@ -27,13 +27,14 @@ import {
   updateUser,
   deleteUser,
 } from "../../api/users";
+// Import fetchLanguages function
+import { fetchLanguages } from "../../api/languages";
 import { showSuccessToast, queryKeys } from "../../lib/react-query";
 
 const UsersManagement = () => {
   const queryClient = useQueryClient();
 
   // State variables
-  // Here is the generic person code that i build for ht scemnatio and will push on the production and then will also inform that to the contractor and then they will ship th ecode to the vetrcel.com
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create"); // 'create' or 'edit'
@@ -42,15 +43,13 @@ const UsersManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Number of users to show per page
 
-  // let new3 array = ["hello", ]
-
   // Form data state
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
-    preferredLanguage: "en",
+    preferredLanguage: "", // Changed to empty string initially
     naatiCclExamDate: "",
     isVerified: false,
   });
@@ -66,12 +65,26 @@ const UsersManagement = () => {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  // NEW: Fetch languages using React Query
+  const {
+    data: languagesData,
+    isLoading: languagesLoading,
+    error: languagesError,
+  } = useQuery({
+    queryKey: queryKeys.languages.list(),
+    queryFn: fetchLanguages,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+
   // Show error if fetch fails
   useEffect(() => {
     if (usersError) {
       console.error("Failed to fetch users:", usersError);
     }
-  }, [usersError]);
+    if (languagesError) {
+      console.error("Failed to fetch languages:", languagesError);
+    }
+  }, [usersError, languagesError]);
 
   // Create user mutation
   const createMutation = useMutation({
@@ -133,7 +146,7 @@ const UsersManagement = () => {
       email: "",
       phone: "",
       password: "",
-      preferredLanguage: "en",
+      preferredLanguage: "", // Empty string as default
       naatiCclExamDate: "",
       isVerified: false,
     });
@@ -160,7 +173,7 @@ const UsersManagement = () => {
       email: user.email,
       phone: user.phone,
       password: "", // Don't show existing password
-      preferredLanguage: user.preferredLanguage,
+      preferredLanguage: user.preferredLanguage || "", // Ensure it's not undefined
       naatiCclExamDate: user.naatiCclExamDate || "",
       isVerified: user.isVerified,
     });
@@ -210,6 +223,9 @@ const UsersManagement = () => {
   // Extract users from API response
   const allUsers = usersData?.data?.users || [];
   const totalUsers = allUsers.length;
+
+  // Extract languages from API response
+  const allLanguages = languagesData?.data || []; // This is now array of language objects
 
   /**
    * Filter users based on search term
@@ -312,7 +328,7 @@ const UsersManagement = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 bg-white shadow-lg border border-gray-200 max-h-[calc(100dvh-64px)] lg:max-h-screen h-full overflow-hidden flex flex-col">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
@@ -350,9 +366,9 @@ const UsersManagement = () => {
       </div>
 
       {/* Users Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 mb-6">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 mb-6 flex-1 overflow-y-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 left-0">
             <tr>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 User
@@ -443,7 +459,9 @@ const UsersManagement = () => {
                   {/* Preferred Language */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-                      {user.preferredLanguage.toUpperCase()}
+                      {user.preferredLanguage
+                        ? user.preferredLanguage.toUpperCase()
+                        : "N/A"}
                     </span>
                   </td>
 
@@ -722,26 +740,67 @@ const UsersManagement = () => {
                   >
                     Preferred Language *
                   </label>
-                  <select
-                    id="preferredLanguage"
-                    value={formData.preferredLanguage}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        preferredLanguage: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-                    required
-                    disabled={
-                      createMutation.isPending || updateMutation.isPending
-                    }
-                  >
-                    <option value="en">English</option>
-                    <option value="ur">Urdu</option>
-                    <option value="hi">Hindi</option>
-                    <option value="ar">Arabic</option>
-                  </select>
+                  {languagesLoading ? (
+                    <div className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-emerald-600 rounded-full animate-spin"></div>
+                      <span className="ml-2 text-sm text-gray-500">
+                        Loading languages...
+                      </span>
+                    </div>
+                  ) : languagesError ? (
+                    <div className="px-4 py-3 border border-red-200 rounded-lg bg-red-50 text-red-700 text-sm">
+                      Failed to load languages. Using default options.
+                      <select
+                        id="preferredLanguage"
+                        value={formData.preferredLanguage}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            preferredLanguage: e.target.value,
+                          })
+                        }
+                        className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
+                        required
+                        disabled={
+                          createMutation.isPending || updateMutation.isPending
+                        }
+                      >
+                        <option value="">Select a language</option>
+                        <option value="en">English</option>
+                        <option value="ur">Urdu</option>
+                        <option value="hi">Hindi</option>
+                        <option value="ar">Arabic</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <select
+                      id="preferredLanguage"
+                      value={formData.preferredLanguage}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          preferredLanguage: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
+                      required
+                      disabled={
+                        createMutation.isPending || updateMutation.isPending
+                      }
+                    >
+                      <option value="" disabled>
+                        Select a language
+                      </option>
+                      {allLanguages.map((language) => (
+                        <option
+                          key={language.id || language.langCode}
+                          value={language.langCode}
+                        >
+                          {language.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>

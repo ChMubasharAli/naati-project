@@ -1,21 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
-  ChevronLeft,
-  Play,
-  Square,
-  HelpCircle,
-  ArrowRight,
   User,
   Loader2,
-  RefreshCw,
   BarChart3,
   MessageSquare,
   Volume2,
   Clock,
   CheckCircle,
+  ArrowRight,
+  CircleQuestionMark,
+  Loader,
+  ArrowLeft,
+  Flag,
+  Bookmark,
 } from "lucide-react";
-import { Modal, Button } from "@mantine/core";
+import { FaTriangleExclamation } from "react-icons/fa6";
+import { FaCircle, FaRegDotCircle } from "react-icons/fa";
+import { Modal, Button, Slider } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   startExamAttempt,
@@ -23,38 +25,31 @@ import {
   getExamResult,
 } from "../../api/exams";
 import { useAuth } from "../../context/AuthContext";
+import VerticalVolumeSlider from "../../components/VerticalVolumeSlider";
+import AudioWaveRecording from "../../components/PlayAndRecordSection";
+
+const TOTAL_EXAM_TIME = 20 * 60; // 20 minutes in seconds
 
 const PracticeDialogue = () => {
+  const [volume, setVolume] = useState(50);
   // State variables
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user: loggedInUser, hasActiveSubscription, subscription } = useAuth();
-
-  // Track free mock test usage
-  const [freeTestUsed, setFreeTestUsed] = useState(false);
-  const [isFreeTestActive, setIsFreeTestActive] = useState(false);
+  const { user: loggedInUser } = useAuth();
 
   // Get URL parameters
   const dialogueId = searchParams.get("dialogueId");
   const examType = searchParams.get("examType") || "complete_dialogue";
   const languageCode = searchParams.get("languageCode");
+  const languageName = searchParams.get("languageName");
 
   // User ID from auth
   const userId = loggedInUser?.id;
 
-  // Check if user has used free test
-  useEffect(() => {
-    if (loggedInUser && !hasActiveSubscription) {
-      const usedFreeTest = localStorage.getItem(
-        `freeTestUsed_${loggedInUser.id}`,
-      );
-      setFreeTestUsed(usedFreeTest === "true");
-    }
-  }, [loggedInUser, hasActiveSubscription]);
-
   // Exam data state
   const [examData, setExamData] = useState(null);
   const [segments, setSegments] = useState([]);
+  const [filteredSegments, setFilteredSegments] = useState([]);
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [examAttemptId, setExamAttemptId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,10 +60,31 @@ const PracticeDialogue = () => {
   const [recordedAudios, setRecordedAudios] = useState({});
   const [attemptsCount, setAttemptsCount] = useState({});
   const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [showRetryButton, setShowRetryButton] = useState(false);
   const [isSubmittingFinal, setIsSubmittingFinal] = useState(false);
   const [waveHeights, setWaveHeights] = useState([]);
+
+  // New states for updated requirements
+  const [showRepeatConfirm, setShowRepeatConfirm] = useState(false);
+  const [showFinishSummary, setShowFinishSummary] = useState(false);
+  const [segmentsStatus, setSegmentsStatus] = useState({});
+  const [showFinishButton, setShowFinishButton] = useState(false);
+  const [blinkText, setBlinkText] = useState("");
+  const [recordingStatus, setRecordingStatus] = useState("idle"); // idle, playing, recording
+  const [showFinalSubmitModal, setShowFinalSubmitModal] = useState(false);
+  const [canSubmitFinal, setCanSubmitFinal] = useState(false);
+  const [isSubmittingSegment, setIsSubmittingSegment] = useState(false);
+  const [isAudioProcessing, setIsAudioProcessing] = useState(false);
+
+  // 🔥 NEW STATE for playback progress
+  const [playbackProgress, setPlaybackProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+
+  // 🔥 NEW STATES for timer functionality
+  const [remainingTime, setRemainingTime] = useState(TOTAL_EXAM_TIME);
+  const [completedSeconds, setCompletedSeconds] = useState(0);
+  const [timerActive, setTimerActive] = useState(true);
+  const [timeExpired, setTimeExpired] = useState(false);
+  const [displayTime, setDisplayTime] = useState("20:00"); // Smooth display time
 
   // Result modal
   const [opened, { open, close }] = useDisclosure(false);
@@ -78,19 +94,256 @@ const PracticeDialogue = () => {
   const isInitializedRef = useRef(false);
   const initializationInProgressRef = useRef(false);
 
+  // 🔥 NEW REFS for timer functionality
+  const incrementApiIntervalRef = useRef(null);
+  const animationFrameRefTimer = useRef(null);
+  const startTimeRef = useRef(Date.now());
+  const accumulatedTimeRef = useRef(0);
+  const lastApiCallTimeRef = useRef(Date.now());
+
   // Refs
   const originalAudioRef = useRef(null);
-  const suggestedAudioRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const videoRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const dataArrayRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const hiddenAudioRef = useRef(null);
 
-  // Initialize wave heights
+  // Initialize gray wave heights
   useEffect(() => {
     const heights = Array.from({ length: 20 }, () => Math.random() * 100);
     setWaveHeights(heights);
   }, [currentSegmentIndex]);
 
-  // 🔥 FIXED: Initialize exam - RUNS ONLY ONCE
+  // 🔥 NEW: Function to fetch completed seconds from API
+  const fetchCompletedSeconds = useCallback(async () => {
+    if (!userId || !dialogueId) return 0;
+
+    try {
+      const response = await fetch(
+        `/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          return data.data.completedSeconds || 0;
+        }
+      }
+      return 0;
+    } catch (error) {
+      console.error("Error fetching completed seconds:", error);
+      return 0;
+    }
+  }, [userId, dialogueId]);
+
+  // 🔥 NEW: Function to increment completed seconds
+  const incrementCompletedSeconds = useCallback(
+    async (seconds) => {
+      if (!userId || !dialogueId || !timerActive) return;
+
+      try {
+        const response = await fetch(
+          `/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}/increment`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({ seconds }),
+          },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setCompletedSeconds((prev) => prev + seconds);
+          }
+        }
+      } catch (error) {
+        console.error("Error incrementing completed seconds:", error);
+        // Silent fail - don't show error to user
+      }
+    },
+    [userId, dialogueId, timerActive],
+  );
+
+  // 🔥 NEW: Format time for display (MM:SS)
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // 🔥 NEW: Smooth timer using requestAnimationFrame
+  const startSmoothTimer = useCallback(async () => {
+    // Clear any existing animation frames
+    if (animationFrameRefTimer.current) {
+      cancelAnimationFrame(animationFrameRefTimer.current);
+      animationFrameRefTimer.current = null;
+    }
+
+    if (incrementApiIntervalRef.current) {
+      clearInterval(incrementApiIntervalRef.current);
+      incrementApiIntervalRef.current = null;
+    }
+
+    // Fetch initial completed seconds
+    const initialCompleted = await fetchCompletedSeconds();
+    setCompletedSeconds(initialCompleted);
+
+    // Calculate initial remaining time
+    const initialRemaining = TOTAL_EXAM_TIME - initialCompleted;
+    const initialRemainingValid = initialRemaining > 0 ? initialRemaining : 0;
+
+    setRemainingTime(initialRemainingValid);
+    setDisplayTime(formatTime(initialRemainingValid));
+
+    if (initialRemainingValid <= 0) {
+      setTimeExpired(true);
+      handleTimeExpired();
+      return;
+    }
+
+    setTimerActive(true);
+    setTimeExpired(false);
+    startTimeRef.current = Date.now();
+    accumulatedTimeRef.current = initialCompleted;
+    lastApiCallTimeRef.current = Date.now();
+
+    // 🔥 SMOOTH TIMER: Use requestAnimationFrame for 60fps updates
+    let lastTimestamp = 0;
+    let secondsSinceLastApiCall = 0;
+
+    const updateTimer = (timestamp) => {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+
+      const elapsed = Date.now() - startTimeRef.current;
+      const totalElapsedSeconds = accumulatedTimeRef.current + elapsed / 1000;
+
+      // Calculate remaining time
+      const remaining = Math.max(0, TOTAL_EXAM_TIME - totalElapsedSeconds);
+
+      // Update display time (smoothly every frame)
+      setDisplayTime(formatTime(remaining));
+
+      // Update remaining time state less frequently (every 100ms for reactivity)
+      if (timestamp - lastTimestamp >= 100) {
+        setRemainingTime(Math.floor(remaining));
+        lastTimestamp = timestamp;
+      }
+
+      // Check for API call every 10 seconds
+      const now = Date.now();
+      secondsSinceLastApiCall = (now - lastApiCallTimeRef.current) / 1000;
+
+      if (secondsSinceLastApiCall >= 10) {
+        const secondsToAdd = Math.floor(secondsSinceLastApiCall);
+        if (secondsToAdd > 0) {
+          incrementCompletedSeconds(secondsToAdd);
+          lastApiCallTimeRef.current = now;
+        }
+      }
+
+      // Check if time expired
+      if (remaining <= 0) {
+        setTimeExpired(true);
+        handleTimeExpired();
+        return;
+      }
+
+      // Continue animation if timer is active
+      if (timerActive && !timeExpired) {
+        animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
+      }
+    };
+
+    // Start the smooth animation
+    animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
+  }, [
+    fetchCompletedSeconds,
+    incrementCompletedSeconds,
+    timerActive,
+    timeExpired,
+  ]);
+
+  // 🔥 NEW: Handle time expiration
+  const handleTimeExpired = useCallback(async () => {
+    setTimerActive(false);
+
+    // Clear animation frame
+    if (animationFrameRefTimer.current) {
+      cancelAnimationFrame(animationFrameRefTimer.current);
+      animationFrameRefTimer.current = null;
+    }
+
+    // Clear API interval
+    if (incrementApiIntervalRef.current) {
+      clearInterval(incrementApiIntervalRef.current);
+      incrementApiIntervalRef.current = null;
+    }
+
+    // Set final display time
+    setDisplayTime("00:00");
+    setRemainingTime(0);
+
+    // Auto-submit the exam
+    await handleAutoSubmit();
+  }, []);
+
+  // 🔥 NEW: Auto-submit function when time expires
+  const handleAutoSubmit = useCallback(async () => {
+    setIsSubmittingFinal(true);
+
+    try {
+      // Submit last segment if not already submitted
+      const currentSegment = filteredSegments[currentSegmentIndex];
+      if (currentSegment && recordedAudios[currentSegment.id]) {
+        await submitCurrentSegment(
+          currentSegment.id,
+          recordedAudios[currentSegment.id],
+        );
+      }
+
+      // Get final result
+      const result = await getExamResult(examAttemptId);
+      setExamResult(result);
+
+      // Clear localStorage
+      localStorage.removeItem("examData");
+
+      // Open result modal
+      open();
+    } catch (error) {
+      console.error("Failed to auto-submit exam:", error);
+      alert("Time expired! Please check your results.");
+    } finally {
+      setIsSubmittingFinal(false);
+    }
+  }, [
+    filteredSegments,
+    currentSegmentIndex,
+    recordedAudios,
+    examAttemptId,
+    open,
+  ]);
+
+  // 🔥 NEW: Filter segments to show only those with isDone: false
+  const filterSegments = useCallback((segmentsArray) => {
+    return segmentsArray.filter((segment) => !segment.isDone);
+  }, []);
+
+  // Initialize exam
   useEffect(() => {
     // ✅ Early return conditions
     if (!dialogueId || !userId) {
@@ -125,27 +378,43 @@ const PracticeDialogue = () => {
         console.log("🔥 API CALL: startExamAttempt - ONLY ONCE");
         const response = await startExamAttempt(examData);
 
+        // Filter segments to show only those with isDone: false
+        const notDoneSegments = filterSegments(response.segments || []);
+
         // Save exam data
         setExamData(response);
         setSegments(response.segments || []);
+        setFilteredSegments(notDoneSegments);
         setExamAttemptId(response.attempt.id);
 
-        // Initialize recordings and attempts objects
+        // Initialize recordings and attempts objects ONLY for filtered segments
         const initialRecordings = {};
         const initialAttempts = {};
-        response.segments?.forEach((segment) => {
+        const initialStatus = {};
+        notDoneSegments.forEach((segment) => {
           initialRecordings[segment.id] = null;
           initialAttempts[segment.id] = 0;
+          initialStatus[segment.id] = "not_answered";
         });
 
         setRecordedAudios(initialRecordings);
         setAttemptsCount(initialAttempts);
+        setSegmentsStatus(initialStatus);
 
         // Check if it's the last segment
-        setIsLastSegment(response.segments.length === 1);
+        setIsLastSegment(notDoneSegments.length === 1);
 
         // Save to localStorage for persistence
-        localStorage.setItem("examData", JSON.stringify(response));
+        localStorage.setItem(
+          "examData",
+          JSON.stringify({
+            ...response,
+            filteredSegments: notDoneSegments,
+          }),
+        );
+
+        // Start the smooth timer
+        await startSmoothTimer();
 
         // ✅ Mark as initialized
         isInitializedRef.current = true;
@@ -163,11 +432,39 @@ const PracticeDialogue = () => {
 
     // Cleanup on unmount
     return () => {
+      // Stop all animation frames and intervals
+      if (animationFrameRefTimer.current) {
+        cancelAnimationFrame(animationFrameRefTimer.current);
+        animationFrameRefTimer.current = null;
+      }
+
+      if (incrementApiIntervalRef.current) {
+        clearInterval(incrementApiIntervalRef.current);
+        incrementApiIntervalRef.current = null;
+      }
+
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (hiddenAudioRef.current) {
+        hiddenAudioRef.current.pause();
+        hiddenAudioRef.current = null;
+      }
     };
-  }, []); // ✅ EMPTY dependency array - runs only on mount
+  }, [
+    dialogueId,
+    userId,
+    navigate,
+    examType,
+    filterSegments,
+    startSmoothTimer,
+  ]);
 
   // Initialize camera
   useEffect(() => {
@@ -193,8 +490,8 @@ const PracticeDialogue = () => {
     }
   }, [isLoading, examData]);
 
-  // Get current segment
-  const currentSegment = segments[currentSegmentIndex];
+  // Get current segment (from filtered segments)
+  const currentSegment = filteredSegments[currentSegmentIndex];
 
   // Get current segment's recording and attempts
   const currentRecording = currentSegment
@@ -204,52 +501,228 @@ const PracticeDialogue = () => {
 
   // Update last segment status
   useEffect(() => {
-    if (segments.length > 0) {
-      setIsLastSegment(currentSegmentIndex === segments.length - 1);
+    if (filteredSegments.length > 0) {
+      setIsLastSegment(currentSegmentIndex === filteredSegments.length - 1);
     }
-  }, [currentSegmentIndex, segments]);
+  }, [currentSegmentIndex, filteredSegments]);
 
-  // Update retry button based on current recording
+  // Calculate if all segments are attempted
   useEffect(() => {
-    if (currentSegment && recordedAudios[currentSegment.id]) {
-      setShowRetryButton(true);
-    } else {
-      setShowRetryButton(false);
+    if (filteredSegments.length > 0) {
+      const allAttempted = filteredSegments.every((segment) => {
+        const attempts = attemptsCount[segment.id] || 0;
+        return attempts > 0;
+      });
+      setCanSubmitFinal(allAttempted);
     }
-  }, [currentSegment, recordedAudios]);
+  }, [filteredSegments, attemptsCount]);
+
+  // Check if navigation should be disabled
+  const shouldDisableNavigation =
+    recordingStatus === "playing" ||
+    recordingStatus === "recording" ||
+    isAudioProcessing ||
+    isSubmittingSegment ||
+    timeExpired;
+
+  // Start audio and auto-record function
+  const startAudioAndRecord = () => {
+    if (!currentSegment || timeExpired) return;
+
+    // Check if this segment has been attempted before (attempts > 0)
+    if (attemptsCount[currentSegment.id] > 0) {
+      setShowRepeatConfirm(true);
+      return;
+    }
+
+    // Start the process
+    playOriginalAudioAndAutoRecord();
+  };
 
   // Play original audio and auto-start recording when finished
   const playOriginalAudioAndAutoRecord = () => {
-    if (originalAudioRef.current) {
-      // Create a hidden audio element for auto-play
-      const hiddenAudio = new Audio(currentSegment?.audioUrl);
+    if (currentSegment?.audioUrl && !timeExpired) {
+      // Set status to playing
+      setRecordingStatus("playing");
+      setBlinkText("Playing Source File");
+      setShowFinishButton(true);
 
-      hiddenAudio
+      // Reset progress
+      setPlaybackProgress(0);
+
+      // Clean up any existing audio
+      if (hiddenAudioRef.current) {
+        hiddenAudioRef.current.pause();
+        hiddenAudioRef.current = null;
+      }
+
+      // Create a hidden audio element for auto-play
+      hiddenAudioRef.current = new Audio(currentSegment.audioUrl);
+
+      hiddenAudioRef.current.addEventListener("loadedmetadata", () => {
+        setAudioDuration(hiddenAudioRef.current.duration);
+      });
+
+      // 🔥 EK HI EVENT LISTENER SE SMOOTH PROGRESS
+      const updateProgress = () => {
+        if (hiddenAudioRef.current && !hiddenAudioRef.current.ended) {
+          const progress =
+            (hiddenAudioRef.current.currentTime /
+              hiddenAudioRef.current.duration) *
+            100;
+          setPlaybackProgress(progress);
+        }
+      };
+
+      // Use requestAnimationFrame for smoother updates
+      let animationFrameId;
+      const smoothUpdate = () => {
+        updateProgress();
+        if (
+          hiddenAudioRef.current &&
+          !hiddenAudioRef.current.ended &&
+          !hiddenAudioRef.current.paused
+        ) {
+          animationFrameId = requestAnimationFrame(smoothUpdate);
+        }
+      };
+
+      hiddenAudioRef.current
         .play()
         .then(() => {
-          setIsAudioPlaying(true);
+          // Start smooth progress tracking
+          animationFrameId = requestAnimationFrame(smoothUpdate);
 
           // Auto start recording when audio ends
-          hiddenAudio.onended = () => {
-            setIsAudioPlaying(false);
+          hiddenAudioRef.current.onended = () => {
+            cancelAnimationFrame(animationFrameId);
+            setRecordingStatus("recording");
+            setBlinkText("REC");
+            setPlaybackProgress(100); // Complete the progress
             startRecording(); // Auto start recording
           };
 
-          // If audio fails to play, show error
-          hiddenAudio.onerror = () => {
-            setIsAudioPlaying(false);
+          hiddenAudioRef.current.onerror = () => {
+            cancelAnimationFrame(animationFrameId);
+            setRecordingStatus("idle");
+            setBlinkText("");
+            setShowFinishButton(false);
+            setPlaybackProgress(0); // Reset progress on error
             alert("Failed to play audio. Please try again.");
           };
         })
         .catch((error) => {
           console.error("Audio play error:", error);
-          setIsAudioPlaying(false);
+          setRecordingStatus("idle");
+          setBlinkText("");
+          setShowFinishButton(false);
+          setPlaybackProgress(0); // Reset progress on error
           alert("Failed to play audio. Please make sure audio is available.");
         });
     }
   };
 
-  // Start recording
+  // Initialize audio analyzer for live waveforms
+  const initializeAudioAnalyzer = (stream) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (
+        window.AudioContext || window.webkitAudioContext
+      )();
+    }
+
+    const audioContext = audioContextRef.current;
+    const source = audioContext.createMediaStreamSource(stream);
+    analyserRef.current = audioContext.createAnalyser();
+
+    analyserRef.current.fftSize = 256;
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    dataArrayRef.current = new Uint8Array(bufferLength);
+
+    source.connect(analyserRef.current);
+
+    // Start updating wave heights
+    updateWaveHeights();
+  };
+
+  const updateWaveHeights = () => {
+    if (!analyserRef.current || !isRecording) return;
+
+    analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+
+    // Get average of frequencies for wave heights
+    const average =
+      dataArrayRef.current.reduce((a, b) => a + b) /
+      dataArrayRef.current.length;
+
+    // Update wave heights based on audio input
+    const newHeights = Array.from({ length: 20 }, (_, i) => {
+      const index = Math.floor(i * (dataArrayRef.current.length / 20));
+      const height = (dataArrayRef.current[index] || average) / 2.55;
+      return Math.min(100, Math.max(10, height));
+    });
+
+    setWaveHeights(newHeights);
+
+    // Continue animation
+    animationFrameRef.current = requestAnimationFrame(updateWaveHeights);
+  };
+
+  // Submit current segment (AI-Exam API call) - UPDATED
+  const submitCurrentSegment = useCallback(
+    async (segmentId, audioBlob) => {
+      if (!segmentId || !audioBlob || !examAttemptId) {
+        console.error("Missing required data for API call");
+        return null;
+      }
+
+      try {
+        console.log("🔵 AI-Exam API CALLED for segment:", segmentId);
+
+        // Get current segment data
+        const segment =
+          filteredSegments.find((s) => s.id === segmentId) || currentSegment;
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append("dialogueId", dialogueId);
+        formData.append(
+          "language",
+          examData?.dialogue?.Language?.name || languageCode || "English",
+        );
+        formData.append("segmentId", segmentId);
+        formData.append("audioTranscript", segment?.textContent || "");
+        formData.append("examAttemptId", examAttemptId);
+        formData.append("audioUrl", segment?.audioUrl || "");
+        formData.append("suggestedAudioUrl", segment?.suggestedAudioUrl || "");
+        formData.append("userId", userId);
+        formData.append("attemptCount", attemptsCount[segmentId] || 0);
+
+        // Append audio file
+        formData.append("userAudio", audioBlob, "recording.webm");
+
+        // Submit segment - AI-Exam API call
+        const response = await submitSegment(formData);
+        console.log("✅ AI-Exam API SUCCESS:", response);
+
+        return response;
+      } catch (error) {
+        console.error("❌ Failed to submit segment:", error);
+        throw error;
+      }
+    },
+    [
+      dialogueId,
+      examData,
+      languageCode,
+      examAttemptId,
+      userId,
+      filteredSegments,
+      currentSegment,
+      attemptsCount,
+    ],
+  );
+
+  // Start recording - UPDATED with API call in recorder.onstop
   const startRecording = async () => {
     try {
       const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -270,6 +743,8 @@ const PracticeDialogue = () => {
 
       recorder.onstop = async () => {
         setIsRecording(false);
+        setRecordingStatus("idle");
+        setBlinkText("");
 
         // Create audio blob
         const audioBlob = new Blob(chunks, { type: "audio/webm" });
@@ -286,17 +761,86 @@ const PracticeDialogue = () => {
             ...prev,
             [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
           }));
+
+          // Update segment status
+          setSegmentsStatus((prev) => ({
+            ...prev,
+            [currentSegment.id]: "answered",
+          }));
+
+          // 🔴 CRITICAL FIX: Call AI-Exam API in BACKGROUND (no UI changes)
+          // Use setTimeout to make it truly async and non-blocking
+          setTimeout(async () => {
+            try {
+              console.log("🎯 AI-Exam API calling in background...");
+
+              // Get current segment data
+              const segment = currentSegment;
+
+              // Create FormData
+              const formData = new FormData();
+              formData.append("dialogueId", dialogueId);
+              formData.append(
+                "language",
+                examData?.dialogue?.Language?.name || languageCode || "English",
+              );
+              formData.append("segmentId", segment.id);
+              formData.append("audioTranscript", segment?.textContent || "");
+              formData.append("examAttemptId", examAttemptId);
+              formData.append("audioUrl", segment?.audioUrl || "");
+              formData.append(
+                "suggestedAudioUrl",
+                segment?.suggestedAudioUrl || "",
+              );
+              formData.append("userId", userId);
+              formData.append("attemptCount", attemptsCount[segment.id] || 0);
+
+              // Append audio file
+              formData.append("userAudio", audioBlob, "recording.webm");
+
+              // Submit segment - AI-Exam API call (background, no await)
+              submitSegment(formData)
+                .then((response) => {
+                  console.log("✅ AI-Exam API SUCCESS (background):", response);
+                })
+                .catch((error) => {
+                  console.error("❌ AI-Exam API failed (background):", error);
+                  // Silent fail - user doesn't need to know
+                });
+            } catch (error) {
+              console.error("❌ Error in background API call:", error);
+              // Silent fail
+            }
+          }, 100); // Small delay to ensure UI is not blocked
         }
+
+        // Reset UI
+        setShowFinishButton(false);
 
         // Stop all audio tracks
         audioStream.getTracks().forEach((track) => track.stop());
+
+        // Clean up audio analyzer
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
       };
 
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
+
+      // Initialize audio analyzer for live waveforms
+      initializeAudioAnalyzer(audioStream);
     } catch (error) {
       console.error("Recording error:", error);
+      setRecordingStatus("idle");
+      setBlinkText("");
+      setShowFinishButton(false);
       alert("Microphone access denied. Please allow microphone access.");
     }
   };
@@ -308,104 +852,97 @@ const PracticeDialogue = () => {
     }
   };
 
-  // Retry recording
-  const handleRetry = () => {
-    if (currentSegment) {
-      // Clear recording for current segment
-      setRecordedAudios((prev) => ({
-        ...prev,
-        [currentSegment.id]: null,
-      }));
+  // Updated Finish Attempt Button Handler - SIMPLIFIED
+  const handleFinishAttempt = () => {
+    if (!currentSegment || timeExpired) return;
 
-      // Play original audio again
-      playOriginalAudioAndAutoRecord();
+    console.log("🎯 Finish Attempt clicked");
+
+    // Simply stop recording (API will be called automatically in recorder.onstop)
+    if (isRecording) {
+      console.log("🛑 Stopping recording...");
+      stopRecording();
     }
+
+    // Reset UI
+    setShowFinishButton(false);
+    setRecordingStatus("idle");
+    setBlinkText("");
   };
-
-  // Submit current segment (background API call)
-  const submitCurrentSegment = useCallback(
-    async (segmentId, audioBlob) => {
-      if (!segmentId || !audioBlob || !examAttemptId || !currentSegment) return;
-
-      try {
-        // Create FormData
-        const formData = new FormData();
-        formData.append("dialogueId", dialogueId);
-        formData.append(
-          "language",
-          examData?.dialogue?.Language?.name || languageCode || "English",
-        );
-        formData.append("segmentId", segmentId);
-        formData.append("audioTranscript", currentSegment.textContent);
-        formData.append("examAttemptId", examAttemptId);
-        formData.append("audioUrl", currentSegment.audioUrl || "");
-        formData.append(
-          "suggestedAudioUrl",
-          currentSegment.suggestedAudioUrl || "",
-        );
-        formData.append("userId", userId);
-        formData.append("attemptCount", attemptsCount[segmentId] || 0);
-
-        // Append audio file
-        formData.append("userAudio", audioBlob, "recording.webm");
-
-        // Submit segment
-        await submitSegment(formData);
-      } catch (error) {
-        console.error("Failed to submit segment:", error);
-      }
-    },
-    [
-      dialogueId,
-      examData,
-      languageCode,
-      examAttemptId,
-      userId,
-      currentSegment,
-      attemptsCount,
-    ],
-  );
 
   // Handle NEXT button click (for all segments except last)
   const handleNextClick = async () => {
-    if (!currentSegment || !currentRecording) {
-      alert("Please record your response first.");
-      return;
+    if (timeExpired) return;
+
+    // Move to next segment immediately (NO API call here)
+    if (currentSegmentIndex < filteredSegments.length - 1) {
+      setCurrentSegmentIndex((prev) => prev + 1);
+      // Reset audio states
+      setRecordingStatus("idle");
+      setBlinkText("");
+      setShowFinishButton(false);
+      setPlaybackProgress(0); // Reset progress
+      // Clean up hidden audio
+      if (hiddenAudioRef.current) {
+        hiddenAudioRef.current.pause();
+        hiddenAudioRef.current = null;
+      }
     }
-
-    // Submit current segment in background (ai-exam API)
-    submitCurrentSegment(currentSegment.id, currentRecording);
-
-    // Move to next segment immediately (no loading)
-    setCurrentSegmentIndex((prev) => prev + 1);
   };
 
-  // Handle FINISH button click (for last segment only)
+  // Updated handleFinishClick (for last segment only)
   const handleFinishClick = async () => {
-    if (!currentSegment || !currentRecording) {
-      alert("Please record your response first.");
+    if (timeExpired) return;
+
+    // Check if all segments are answered
+    const allAnswered = filteredSegments.every(
+      (segment) => segmentsStatus[segment.id] === "answered",
+    );
+
+    if (!allAnswered) {
+      setShowFinishSummary(true);
       return;
     }
 
-    // Show loading overlay for final submission
+    // Show final submission modal
+    setShowFinalSubmitModal(true);
+  };
+
+  // Handle final submission
+  const handleFinalSubmission = async () => {
     setIsSubmittingFinal(true);
 
     try {
-      // 1. First submit last segment (ai-exam API)
-      await submitCurrentSegment(currentSegment.id, currentRecording);
+      // Submit last segment if not already submitted
+      if (
+        currentSegment &&
+        currentRecording &&
+        !recordedAudios[currentSegment.id]
+      ) {
+        await submitCurrentSegment(currentSegment.id, currentRecording);
+      }
 
-      // 2. Then get final result
+      // Stop timer animation frame
+      if (animationFrameRefTimer.current) {
+        cancelAnimationFrame(animationFrameRefTimer.current);
+        animationFrameRefTimer.current = null;
+      }
+
+      // Stop API interval
+      if (incrementApiIntervalRef.current) {
+        clearInterval(incrementApiIntervalRef.current);
+        incrementApiIntervalRef.current = null;
+      }
+
+      // Get final result
       const result = await getExamResult(examAttemptId);
       setExamResult(result);
 
-      // Mark free test as used if user is not subscribed
-      if (!hasActiveSubscription && loggedInUser) {
-        localStorage.setItem(`freeTestUsed_${loggedInUser.id}`, "true");
-        setFreeTestUsed(true);
-      }
-
       // Clear localStorage
       localStorage.removeItem("examData");
+
+      // Close final submit modal
+      setShowFinalSubmitModal(false);
 
       // Open result modal
       open();
@@ -419,8 +956,20 @@ const PracticeDialogue = () => {
 
   // Handle previous button click
   const handlePreviousClick = () => {
+    if (timeExpired) return;
+
     if (currentSegmentIndex > 0) {
       setCurrentSegmentIndex((prev) => prev - 1);
+      // Reset audio states
+      setRecordingStatus("idle");
+      setBlinkText("");
+      setShowFinishButton(false);
+      setPlaybackProgress(0); // Reset progress
+      // Clean up hidden audio
+      if (hiddenAudioRef.current) {
+        hiddenAudioRef.current.pause();
+        hiddenAudioRef.current = null;
+      }
     }
   };
 
@@ -431,28 +980,57 @@ const PracticeDialogue = () => {
       const parsedData = JSON.parse(savedExamData);
       setExamData(parsedData);
       setSegments(parsedData.segments || []);
+      setFilteredSegments(
+        parsedData.filteredSegments ||
+          parsedData.segments?.filter((s) => !s.isDone) ||
+          [],
+      );
       setExamAttemptId(parsedData.attempt.id);
 
       const initialRecordings = {};
       const initialAttempts = {};
-      parsedData.segments?.forEach((segment) => {
+      const initialStatus = {};
+      const filteredSegmentsData =
+        parsedData.filteredSegments ||
+        parsedData.segments?.filter((s) => !s.isDone) ||
+        [];
+
+      filteredSegmentsData.forEach((segment) => {
         initialRecordings[segment.id] = null;
         initialAttempts[segment.id] = 0;
+        initialStatus[segment.id] = "not_answered";
       });
 
       setRecordedAudios(initialRecordings);
       setAttemptsCount(initialAttempts);
+      setSegmentsStatus(initialStatus);
+
+      // Start smooth timer when loading from localStorage
+      startSmoothTimer();
 
       // ✅ Mark as initialized when loading from localStorage
       isInitializedRef.current = true;
     }
-  }, []);
+  }, [startSmoothTimer]);
+
+  // Handle repeat confirmation
+  const handleRepeatConfirm = () => {
+    setShowRepeatConfirm(false);
+    playOriginalAudioAndAutoRecord();
+  };
+
+  // Handle segment click in summary modal
+  const handleSegmentClick = (index) => {
+    setCurrentSegmentIndex(index);
+    setShowFinishSummary(false);
+  };
 
   // Wave animation styles
   const waveStyle = {
-    animation: isAudioPlaying
-      ? "waveAnimation 1s ease-in-out infinite alternate"
-      : "none",
+    animation:
+      recordingStatus === "playing"
+        ? "waveAnimation 1s ease-in-out infinite alternate"
+        : "none",
   };
 
   // Add CSS for wave animation
@@ -461,37 +1039,48 @@ const PracticeDialogue = () => {
       0% { height: 30%; }
       100% { height: 100%; }
     }
+    
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
   `;
 
-  if (!userId) {
+  // Live recording wave component
+  const LiveRecordingWave = ({ index }) => {
+    const height = waveHeights[index] || 50;
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <p className="text-gray-600 text-center">Please login to continue</p>
-        <button
-          onClick={() => navigate("/login")}
-          className="mt-4 cursor-pointer px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
-        >
-          Go to Login
-        </button>
-      </div>
+      <div
+        className="w-0.5 sm:w-1 rounded-full"
+        style={{
+          height: `${height}%`,
+          backgroundColor: "#ef4444",
+          animation: isRecording
+            ? "waveAnimation 0.5s ease-in-out infinite alternate"
+            : "none",
+        }}
+      />
     );
-  }
+  };
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
         <div className="flex justify-center">
-          <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
         </div>
         <p className="text-gray-600 text-center">Loading exam...</p>
       </div>
     );
   }
 
-  if (!examData || segments.length === 0) {
+  if (!examData || filteredSegments.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <p className="text-gray-600 text-center">No exam data found</p>
+        <p className="text-gray-600 text-center">
+          No segments available for practice
+        </p>
         <button
           onClick={() => navigate("/user")}
           className="mt-4 cursor-pointer px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
@@ -514,10 +1103,14 @@ const PracticeDialogue = () => {
             <div className="flex flex-col items-center">
               <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500 animate-spin mb-4" />
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 text-center">
-                Processing Final Submission
+                {timeExpired
+                  ? "Time Expired - Submitting..."
+                  : "Processing Final Submission"}
               </h3>
               <p className="text-gray-600 text-center text-sm sm:text-base">
-                Submitting your responses and calculating results...
+                {timeExpired
+                  ? "Your time has expired. Submitting your responses..."
+                  : "Submitting your responses and calculating results..."}
                 <br />
                 <span className="text-xs sm:text-sm">
                   This may take a moment
@@ -528,16 +1121,207 @@ const PracticeDialogue = () => {
         </div>
       )}
 
-      <div className="flex flex-col  w-full ">
+      {/* Segment Submission Indicator */}
+      {(isSubmittingSegment || isAudioProcessing) && (
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+          {isSubmittingSegment
+            ? "Submitting recording..."
+            : "Processing audio..."}
+        </div>
+      )}
+
+      {/* Time Expired Warning */}
+      {timeExpired && (
+        <div className="fixed top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+          ⏰ Time Expired! Submitting your exam...
+        </div>
+      )}
+
+      {/* Repeat Confirmation Modal */}
+      <Modal
+        opened={showRepeatConfirm}
+        onClose={() => setShowRepeatConfirm(false)}
+        centered
+        size="sm"
+      >
+        <div className="space-y-12">
+          <div className="bg-gray-100 h-32 w-32 rounded-full mx-auto shadow-md flex items-center justify-center">
+            <FaTriangleExclamation size={56} className="text-orange-300" />
+          </div>
+
+          <p className="text-gray-500 text-2xl text-center ">
+            Are you sure you want to repeat the segment?
+          </p>
+
+          <div className="flex justify-center  gap-2">
+            <button
+              onClick={() => setShowRepeatConfirm(false)}
+              className="hover:bg-gray-200 cursor-pointer text-black !text-sm py-2 px-8 rounded-full"
+            >
+              Cancel
+            </button>
+            <button
+              className="bg-[#006b5e] text-white cursor-pointer py-2 px-8 rounded-full"
+              onClick={handleRepeatConfirm}
+            >
+              ok
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Finish Exam Summary Modal */}
+      <Modal
+        opened={showFinishSummary}
+        centered
+        withCloseButton={false}
+        size={"sm"}
+      >
+        <div className=" flex flex-col overflow-hidden">
+          <div className="flex items-center justify-evenly  pb-6 border-b border-gray-300 ">
+            <FaTriangleExclamation size={28} className="text-orange-300" />
+            <div className="">
+              <p className="font-normal ">End of dialogues</p>
+              <p className="text-xs">
+                You have{" "}
+                {
+                  filteredSegments.filter(
+                    (segment) => segmentsStatus[segment.id] !== "answered",
+                  ).length
+                }{" "}
+                {""} unanswered segment(s).
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 overflow-y-auto flex-1">
+            {filteredSegments.map((segment, idx) => (
+              <div
+                key={segment.id}
+                onClick={() => handleSegmentClick(idx)}
+                className={` py-2 border-b border-gray-300 cursor-pointer transition-colors `}
+              >
+                <div className="flex justify-between items-center  text-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {segmentsStatus[segment.id] === "answered" ? (
+                        <FaCircle />
+                      ) : (
+                        <FaRegDotCircle />
+                      )}
+                      <span>Segment {idx + 1}</span>
+                    </div>
+                  </div>
+                  <div className={` rounded text-xs text-gray-500  `}>
+                    {segmentsStatus[segment.id] === "answered"
+                      ? "Answered"
+                      : "Opened, but not answered"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end mt-6 gap-2">
+            <button
+              onClick={() => setShowFinishSummary(false)}
+              className="hover:bg-gray-200 cursor-pointer text-black !text-sm py-0.5 px-6 rounded-full"
+            >
+              Cancel
+            </button>
+            <button
+              className="bg-[#006b5e] text-white cursor-pointer py-0.5 px-6 rounded-full"
+              onClick={() => setShowFinishSummary(false)}
+            >
+              ok
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Final Submission Modal */}
+      <Modal
+        opened={showFinalSubmitModal}
+        onClose={() => !isSubmittingFinal && setShowFinalSubmitModal(false)}
+        centered
+        withCloseButton={false}
+        size={"sm"}
+      >
+        <div className="flex flex-col overflow-hidden">
+          <div className="flex items-center justify-evenly  pb-6 border-b border-gray-300 ">
+            <FaTriangleExclamation size={28} className="text-orange-300" />
+            <div className="">
+              <p className="font-normal ">End of dialogues</p>
+              <p className="text-xs">
+                You have{" "}
+                {
+                  filteredSegments.filter(
+                    (segment) => segmentsStatus[segment.id] !== "answered",
+                  ).length
+                }{" "}
+                {""} unanswered segment(s).
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 overflow-y-auto flex-1">
+            {filteredSegments.map((segment, idx) => (
+              <div
+                key={segment.id}
+                onClick={() => handleSegmentClick(idx)}
+                className={` py-2 border-b border-gray-300 cursor-pointer transition-colors `}
+              >
+                <div className="flex justify-between items-center  text-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {segmentsStatus[segment.id] === "answered" ? (
+                        <FaCircle />
+                      ) : (
+                        <FaRegDotCircle />
+                      )}
+                      <span>Segment {idx + 1}</span>
+                    </div>
+                  </div>
+                  <div className={` rounded text-xs text-gray-500  `}>
+                    {segmentsStatus[segment.id] === "answered"
+                      ? "Answered"
+                      : "Opened, but not answered"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-end mt-6 gap-2">
+            <button
+              className="hover:bg-gray-200 cursor-pointer text-black !text-sm py-0.5 px-6 rounded-full"
+              onClick={() => setShowFinalSubmitModal(false)}
+              disabled={isSubmittingFinal}
+            >
+              Cancel
+            </button>
+            <button
+              className="bg-[#006b5e] text-white cursor-pointer py-0.5 px-6 rounded-full"
+              onClick={() => {
+                setShowFinalSubmitModal(false);
+                handleFinalSubmission();
+              }}
+              disabled={!canSubmitFinal || isSubmittingFinal}
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <div className="flex flex-col w-full max-h-[calc(100dvh-64px)] lg:max-h-screen h-full overflow-hidden">
         {/* Top Header */}
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 border-b border-gray-200">
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 border-b-3 border-[#006b5e]">
           <div className="flex items-center mb-2 sm:mb-0">
             <div className="ml-2 leading-tight">
-              <div className="text-lg sm:text-xl font-bold text-[#006b5e] uppercase tracking-tighter">
-                PREP SMART
-              </div>
-              <div className="text-xs sm:text-sm text-[#006b5e] font-medium tracking-tighter">
-                CCL Platform
+              <div className="text-lg sm:text-xl font-bold text-[#006b5e]  tracking-normal">
+                assessmentQ
               </div>
             </div>
           </div>
@@ -546,437 +1330,273 @@ const PracticeDialogue = () => {
               <User size={12} className="sm:size-[14px]" />
             </div>
             <span className="truncate max-w-[150px] sm:max-w-none">
-              {loggedInUser?.email}
+              {loggedInUser?.email || "User"}
             </span>
           </div>
         </header>
 
         {/* Breadcrumb & Progress Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-b border-gray-100 text-[10px] sm:text-[11px] text-gray-500">
+        <div className="flex flex-col text-sm   sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-300  ">
           <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-0 flex-wrap">
-            <span className="cursor-pointer" onClick={() => navigate("/user")}>
-              🏠
+            <span className="font-semibold">
+              CCL Practice dialogue - {languageName}
             </span>
-            <span className="hidden xs:inline">
-              CCL Practice dialogue -{" "}
-              {examData?.dialogue?.Language?.name || "Language"}
-            </span>
-            <span className="xs:hidden">
-              Dialogue - {examData?.dialogue?.Language?.name || "Language"}
-            </span>
+
             <span>/</span>
-            <span className="text-gray-400">Dialogue</span>
+            <span className="">Dialogue</span>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-nowrap">
-              {currentSegmentIndex + 1}/{segments.length}
-            </span>
-            <div className="w-24 sm:w-32 h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200 flex-grow sm:flex-grow-0">
-              <div
-                className="h-full bg-[#006b5e] opacity-30 transition-all duration-300"
-                style={{
-                  width: `${
-                    ((currentSegmentIndex + 1) / segments.length) * 100
-                  }%`,
-                }}
-              ></div>
+
+          {/* 🔥 SMOOTH TIMER Display */}
+          <div className="flex items-center gap-4">
+            <div
+              className={`text-sm font-semibold ${remainingTime < 60 ? "text-red-600 animate-pulse" : "text-gray-700"}`}
+            >
+              ⏱️ Time: {displayTime}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-nowrap">
+                {currentSegmentIndex + 1}/{filteredSegments.length}
+              </span>
+              <div className="w-24 sm:w-32 h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200 flex-grow sm:flex-grow-0">
+                <div
+                  className="h-full bg-[#006b5e] opacity-30 transition-all duration-300"
+                  style={{
+                    width: `${
+                      ((currentSegmentIndex + 1) / filteredSegments.length) *
+                      100
+                    }%`,
+                  }}
+                ></div>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Segment & Help */}
+        <div className="flex flex-col text-sm  sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 sm:py-3  border-b border-gray-300  ">
+          <div className="flex items-center gap-1  sm:gap-2 mb-2 sm:mb-0 flex-wrap">
+            <span className="font-semibold">
+              Segment - {currentSegmentIndex + 1}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <CircleQuestionMark size={16} /> Help
+          </div>
+        </div>
+
         {/* Main Content */}
-        <main className="grow px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-8">
+        <main
+          className="grow px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-8 flex-1   overflow-y-scroll
+        "
+        >
           <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:gap-12">
             {/* Left Instructions */}
             <div className="flex-1 space-y-3 sm:space-y-4 text-xs sm:text-[13.5px] text-[#444] leading-relaxed">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base sm:text-[18px] font-bold text-[#3db39e] uppercase mb-4 sm:mb-6 lg:mb-8 tracking-wide text-center sm:text-left">
-                  {examData?.dialogue?.title || "Dialogue"}
+              {isLastSegment ? (
+                <h2 className=" text-base text-[#3db39e] font-semibold mb-4 sm:mb-6 lg:mb-8 tracking-normal text-center sm:text-left">
+                  END OF PRACTICE DIALOGUE
                 </h2>
-
-                {/* Free Test Badge - Only show for non-subscribed users */}
-                {!hasActiveSubscription && !freeTestUsed && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
-                    🎁 Try Now - Free Test
-                  </span>
-                )}
-
-                {/* Subscription Required Badge */}
-                {!hasActiveSubscription && freeTestUsed && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                    🔒 Premium Required
-                  </span>
-                )}
-
-                {/* Premium User Badge */}
-                {hasActiveSubscription && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    ✅ Premium Access
-                  </span>
-                )}
-              </div>
-
-              {/* Access Control Message */}
-              {!hasActiveSubscription && freeTestUsed && (
-                <div className="bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-5 w-5 text-red-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">
-                        Premium Access Required
-                      </h3>
-                      <div className="mt-2 text-sm text-red-700">
-                        <p>
-                          You have used your free test. Upgrade to premium for
-                          unlimited access to:
-                        </p>
-                        <ul className="list-disc pl-5 mt-1">
-                          <li>All practice dialogues</li>
-                          <li>Advanced analytics</li>
-                          <li>Full mock tests</li>
-                        </ul>
-                        <button
-                          onClick={() => navigate("/user/subscriptions")}
-                          className="mt-3 cursor-pointer px-4 py-2 cursor-pointer bg-gradient-to-r from-red-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-                        >
-                          Upgrade to Premium
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Main Instructions - Only show if access allowed */}
-              {hasActiveSubscription || !freeTestUsed ? (
-                <>
-                  <p>
-                    This segment is intended to{" "}
-                    <strong>test your audio and visual equipment</strong> prior
-                    to taking the full CCL test.
-                  </p>
-                  <p>
-                    Click on <strong>Play Audio</strong> below the audio, to
-                    hear the segment and test your microphone and camera.
-                  </p>
-                  <p>
-                    You should be able to see yourself, and notice soundwaves
-                    when audio will play.
-                  </p>
-                  <p>
-                    Click on <strong>Next </strong>, to upload your recorded
-                    audio and move to the next segment.
-                  </p>
-                  <p>
-                    You can also play and listen to the{" "}
-                    <strong>Suggested Audio</strong> for this segment, to
-                    compare with your recording.
-                  </p>
-
-                  <div className="mt-6 sm:mt-8 space-y-2 sm:space-y-3">
-                    <p className="font-bold">Repeat:</p>
-                    <p>
-                      You are able to repeat any segment before you begin
-                      speaking (
-                      <span className="font-bold underline">
-                        one repeat per dialogue without penalty
-                      </span>
-                      ) to do this:
-                    </p>
-                    <ul className="list-disc pl-4 sm:pl-5">
-                      <li>
-                        Click on the <strong>Retry</strong> button for again
-                        recording you voice
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="mt-8 sm:mt-10 flex items-center gap-2 text-xs sm:text-[13px] flex-wrap">
-                    <span>
-                      Now you can start your test by clicking on the{" "}
-                      <strong>Play Audio </strong> button.
-                    </span>
-
-                    {/* Free Test Usage Notice */}
-                    {!hasActiveSubscription && !freeTestUsed && (
-                      <span className="text-yellow-600 font-medium">
-                        (This is your free trial test)
-                      </span>
-                    )}
-                  </div>
-                </>
               ) : (
-                /* Locked Content for non-subscribed users who used free test */
-                <div className="text-center py-8">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-700 mb-2">
-                    Content Locked
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    You have already used your free test. Upgrade to premium for
-                    unlimited access to all practice dialogues.
+                <h2 className=" text-base text-[#3db39e] font-semibold mb-4 sm:mb-6 lg:mb-8 tracking-normal text-center sm:text-left">
+                  {languageName} - CCL test
+                </h2>
+              )}
+
+              {/* 🔥 NEW: Time Warning for last 60 seconds */}
+              {remainingTime < 60 && !isLastSegment && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-red-600 font-semibold flex items-center gap-2">
+                    <Clock size={16} />
+                    Warning: Only {displayTime} remaining!
                   </p>
-                  <button
-                    onClick={() => navigate("/user/subscriptions")}
-                    className="px-6 cursor-pointer py-3 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
-                  >
-                    View Pricing Plans
-                  </button>
+                  <p className="text-red-500 text-xs mt-1">
+                    Complete your current segment quickly or it will be
+                    auto-submitted.
+                  </p>
                 </div>
               )}
 
-              {/* Current Segment Text - For Small Screens */}
-              {(hasActiveSubscription || !freeTestUsed) &&
-                currentSegment?.textContent && (
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 ">
-                    <h3 className="font-bold text-gray-700 mb-2">
-                      Current Segment:
-                    </h3>
-                    <p className="text-gray-800">
-                      {currentSegment.textContent}
-                    </p>
-                  </div>
-                )}
+              {isLastSegment ? (
+                <div className="space-y-4">
+                  <p className="flex items-center gap-1">
+                    Please click on{" "}
+                    <span className="border  flex items-center gap-1 border-red-500 py-1 px-4 rounded-full text-red-500">
+                      <Flag size={14} />
+                      Finish
+                    </span>{" "}
+                    at the bottom of the screen to end the practice test.
+                  </p>
+
+                  <p className="">
+                    You will be shown a list of the dialogue segments.
+                  </p>
+
+                  <p className="">
+                    Please make sure every segment is marked "Answered"
+                  </p>
+                  <p className="">
+                    If "Not answered", you must click on the segment to properly
+                    complete it.
+                  </p>
+                  <p className="mt-12">
+                    Once finished, please click "Confirm".
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="font-semibold">To hear the segment</p>
+
+                  <ul className="list-disc pl-4 sm:pl-5 flex flex-col space-y-6">
+                    <li>
+                      Click{" "}
+                      <span className="bg-[#006b5e] py-2 px-4 rounded-full text-white">
+                        Start
+                      </span>{" "}
+                      and speak after the chime
+                    </li>
+                    <li>
+                      Click{" "}
+                      <span className="bg-[#006b5e] py-2 px-4 rounded-full text-white">
+                        Finish Attempt
+                      </span>{" "}
+                      to upload
+                    </li>
+                  </ul>
+
+                  <p className="font-semibold mb-2">To repeat a segment</p>
+
+                  <p>(One per dialogue without penalty)</p>
+
+                  <ul className="list-disc pl-4 sm:pl-5 flex flex-col space-y-6">
+                    <li>
+                      Click{" "}
+                      <span className="bg-[#006b5e] py-2 px-4 rounded-full text-white">
+                        Start
+                      </span>{" "}
+                      again
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* Right Interface (Video & Audio) */}
             <div className="flex-1">
               {/* Camera Feed */}
-              <div className="w-full h-72 rounded-lg   shadow-sm mb-4 sm:mb-6 overflow-hidden">
+              <div className="w-full h-52  mb-4 sm:mb-6 overflow-hidden  flex items-center justify-center">
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover"
+                  className="w-64 h-full object-cover rounded-md"
                   style={{ transform: "scaleX(-1)" }}
                 />
               </div>
 
               {/* Audio Section */}
-              {hasActiveSubscription || !freeTestUsed ? (
-                <div className="space-y-4 sm:space-y-6">
-                  {/* Hidden audio element for original audio */}
-                  {currentSegment?.audioUrl && (
-                    <audio
-                      ref={originalAudioRef}
-                      src={currentSegment.audioUrl}
-                      style={{ display: "none" }}
-                    />
-                  )}
+              <div className="space-y-4 sm:space-y-6">
+                {/* Hidden audio element for original audio */}
+                {currentSegment?.audioUrl && (
+                  <audio
+                    ref={originalAudioRef}
+                    src={currentSegment.audioUrl}
+                    style={{ display: "none" }}
+                  />
+                )}
 
-                  {/* Original Audio - Wave visualization */}
-                  {currentSegment?.audioUrl && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-2">
-                        Original Audio:
-                      </p>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                        {/* Audio Wave Visualization */}
-                        <div className="flex-1 w-full h-12 sm:h-16 bg-gray-100 rounded-lg border border-gray-300 p-3 sm:p-4">
-                          <div className="flex items-center justify-center h-full">
-                            <div className="flex items-end h-6 sm:h-8 gap-0.5 sm:gap-1">
-                              {waveHeights.map((height, index) => (
-                                <div
-                                  key={index}
-                                  className="w-0.5 sm:w-1 bg-emerald-500 rounded-full"
-                                  style={{
-                                    height: `${height}%`,
-                                    ...(isAudioPlaying ? waveStyle : {}),
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={playOriginalAudioAndAutoRecord}
-                          disabled={
-                            isRecording || currentRecording || isAudioPlaying
-                          }
-                          className={`px-3 cursor-pointer sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto ${
-                            isRecording || currentRecording || isAudioPlaying
-                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                              : "bg-emerald-500 text-white hover:bg-emerald-600"
-                          }`}
-                        >
-                          <Play size={14} className="sm:size-[16px]" />
-                          <span>Play Audio</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                {/* Original Audio - Gray wave visualization */}
+                <AudioWaveRecording
+                  currentSegment={currentSegment}
+                  isRecording={isRecording}
+                  playbackProgress={playbackProgress} // 🔥 NEW: Pass progress
+                  audioDuration={audioDuration} // 🔥 NEW: Pass duration
+                />
 
-                  {/* Suggested Audio - With controls */}
-                  {currentSegment?.suggestedAudioUrl && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-2">
-                        Suggested Audio:
-                      </p>
-                      <div className="flex items-center gap-4">
-                        <audio
-                          ref={suggestedAudioRef}
-                          src={currentSegment.suggestedAudioUrl}
-                          controls
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Status and Controls */}
-                  <div className="space-y-4">
-                    {/* Attempts Count */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">
+                {/* Status and Controls */}
+                <div className="space-y-4">
+                  {/* Attempts Count, Start Button, Finish Button in same row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      {/* Attempts Count */}
+                      <div className="">
+                        <span className="text-sm  text-gray-700">
                           Attempts: {currentAttempts}
                         </span>
-                        {isRecording && (
-                          <div className="flex items-center gap-1 text-red-500">
-                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs">Recording...</span>
-                          </div>
-                        )}
                       </div>
 
-                      {/* Recording Controls */}
-                      <div className="flex flex-wrap gap-2 sm:gap-4">
-                        {/* Stop Recording Button (only when recording) */}
-                        {isRecording && (
-                          <button
-                            onClick={stopRecording}
-                            className="flex cursor-pointer items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm w-full sm:w-auto justify-center"
-                          >
-                            <Square size={14} className="sm:size-[16px]" />
-                            Stop Recording
-                          </button>
-                        )}
+                      {/* Start Button */}
+                      {!showFinishButton && !isRecording && (
+                        <button
+                          onClick={startAudioAndRecord}
+                          disabled={
+                            recordingStatus === "playing" ||
+                            isRecording ||
+                            isSubmittingSegment ||
+                            isAudioProcessing ||
+                            timeExpired
+                          }
+                          className={`px-4 sm:px-6 py-2 rounded-full flex items-center gap-2 justify-center w-full sm:w-auto cursor-pointer ${
+                            recordingStatus === "playing" ||
+                            isRecording ||
+                            isSubmittingSegment ||
+                            isAudioProcessing ||
+                            timeExpired
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              : "bg-[#006b5e] text-white hover:bg-[#005a4f]"
+                          }`}
+                        >
+                          <span className="font-medium">Start</span>
+                        </button>
+                      )}
 
-                        {/* Retry Button (after first recording) */}
-                        {showRetryButton && (
-                          <button
-                            onClick={handleRetry}
-                            className="flex cursor-pointer items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-[#006b5e] hover:bg-[#005a4f] text-white rounded-lg text-sm w-full sm:w-auto justify-center"
-                          >
-                            <RefreshCw size={14} className="sm:size-[16px]" />
-                            Retry
-                          </button>
-                        )}
-                      </div>
+                      {/* Finish Attempt Button */}
+                      {showFinishButton && (
+                        <button
+                          onClick={handleFinishAttempt}
+                          disabled={
+                            recordingStatus === "playing" || timeExpired
+                          }
+                          className={`px-4 sm:px-6 py-2 border rounded-full flex items-center gap-2 justify-center w-full sm:w-auto ${
+                            recordingStatus === "playing" || timeExpired
+                              ? "cursor-not-allowed"
+                              : "cursor-pointer"
+                          }`}
+                        >
+                          Finish Attempt
+                        </button>
+                      )}
                     </div>
 
-                    {/* Next/Finish Button Info */}
-                    {currentRecording && !isRecording && (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-xs sm:text-sm font-medium text-green-700">
-                          {isLastSegment ? (
-                            <>
-                              <CheckCircle
-                                size={14}
-                                className="inline mr-1 sm:size-[16px]"
-                              />
-                              Ready to finish! Click "Finish" to submit all
-                              responses and view results.
-                            </>
-                          ) : (
-                            <>
-                              ✓ Recording completed! Click "Next" to continue to
-                              the next segment.
-                            </>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* Locked Audio Section */
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gray-100 bg-opacity-80 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center p-8 z-10">
-                    <svg
-                      className="w-12 h-12 text-gray-400 mb-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                    <h3 className="text-lg font-bold text-gray-700 mb-2">
-                      Audio Section Locked
-                    </h3>
-                    <p className="text-gray-600 text-center mb-4">
-                      Upgrade to premium to access audio recording features
-                    </p>
-                    <button
-                      onClick={() => navigate("/user/subscriptions")}
-                      className="px-6 cursor-pointer cursor-pointer py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
-                    >
-                      Unlock Premium
-                    </button>
-                  </div>
-
-                  {/* Blurred Original Audio Section */}
-                  <div className="filter blur-sm">
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Original Audio:
-                    </p>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      <div className="flex-1 w-full h-12 sm:h-16 bg-gray-100 rounded-lg border border-gray-300 p-3 sm:p-4 opacity-50">
-                        <div className="flex items-center justify-center h-full">
-                          <div className="flex items-end h-6 sm:h-8 gap-0.5 sm:gap-1">
-                            {waveHeights.map((height, index) => (
-                              <div
-                                key={index}
-                                className="w-0.5 sm:w-1 bg-gray-400 rounded-full"
-                                style={{ height: `${height}%` }}
-                              />
-                            ))}
-                          </div>
+                    {/* Status Text in same row */}
+                    <div className="flex items-center gap-2 animate-pulse">
+                      {blinkText && recordingStatus === "playing" && (
+                        <div
+                          className="text-center border border-slate-900 py-1 px-2 rounded-sm "
+                          style={{ animation: "blink 1s infinite" }}
+                        >
+                          <p className="text-sm  text-slate-900 flex items-center gap-1">
+                            <Loader size={14} className="animate-spin" />
+                            {blinkText}
+                          </p>
                         </div>
-                      </div>
-                      <button
-                        disabled
-                        className="px-3 sm:px-4 cursor-pointer py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto bg-gray-300 text-gray-500 cursor-not-allowed"
-                      >
-                        <Play size={14} className="sm:size-[16px]" />
-                        <span>Play Audio</span>
-                      </button>
+                      )}
+                      {blinkText && recordingStatus === "recording" && (
+                        <div
+                          className="text-center border border-red-500 py-1 px-2 rounded-sm "
+                          style={{ animation: "blink 1s infinite" }}
+                        >
+                          <p className="text-sm font-medium text-red-600 flex items-center gap-1">
+                            <span className="h-3 w-3 rounded-full bg-red-500 inline-block"></span>{" "}
+                            {blinkText}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </main>
@@ -985,7 +1605,7 @@ const PracticeDialogue = () => {
         <footer className="w-full mt-auto">
           {/* Segment Progress Dots */}
           <div className="flex w-full h-1.5 gap-0.5 sm:gap-1">
-            {segments.map((_, i) => (
+            {filteredSegments.map((_, i) => (
               <div
                 key={i}
                 className={`grow border-r border-white last:border-0 ${
@@ -995,55 +1615,69 @@ const PracticeDialogue = () => {
             ))}
           </div>
 
-          {/* Navigation Buttons - Only show if user has access */}
-          {(hasActiveSubscription || !freeTestUsed) && (
-            <div className="flex justify-end items-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-100">
-              <button
-                onClick={handlePreviousClick}
-                disabled={currentSegmentIndex === 0 || isSubmittingFinal}
-                className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                  currentSegmentIndex === 0 || isSubmittingFinal
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
-              >
-                <ChevronLeft size={16} className="sm:size-[18px]" />
-                <span>Previous</span>
-              </button>
+          {/* Navigation Buttons */}
+          <div className="flex justify-end items-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-100">
+            <button
+              onClick={handlePreviousClick}
+              disabled={
+                currentSegmentIndex === 0 ||
+                shouldDisableNavigation ||
+                isSubmittingFinal
+              }
+              className={`flex items-center  gap-1 sm:gap-2  text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
+                currentSegmentIndex === 0 ||
+                shouldDisableNavigation ||
+                isSubmittingFinal
+                  ? "cursor-not-allowed"
+                  : "cursor-pointer"
+              }`}
+            >
+              <ArrowLeft size={16} className="sm:size-[18px]" />
+              <span>Previous</span>
+            </button>
 
-              <div className="flex items-center gap-2 sm:gap-4">
-                {isLastSegment ? (
-                  // FINISH Button for last segment
-                  <button
-                    onClick={handleFinishClick}
-                    disabled={!currentRecording || isSubmittingFinal}
-                    className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                      !currentRecording || isSubmittingFinal
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-emerald-600 hover:bg-emerald-700"
-                    }`}
-                  >
-                    <CheckCircle size={16} className="sm:size-[18px]" />
-                    <span>Finish</span>
-                  </button>
-                ) : (
-                  // NEXT Button for all other segments
-                  <button
-                    onClick={handleNextClick}
-                    disabled={!currentRecording}
-                    className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                      !currentRecording
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-[#006b5e] hover:bg-[#005a4f]"
-                    }`}
-                  >
-                    <span>Next</span>
-                    <ArrowRight size={16} className="sm:size-[18px]" />
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center gap-2 sm:gap-4">
+              {isLastSegment ? (
+                // FINISH Button for last segment
+                <button
+                  onClick={handleFinishClick}
+                  disabled={
+                    shouldDisableNavigation || isSubmittingFinal || timeExpired
+                  }
+                  className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full transition-colors ${
+                    shouldDisableNavigation || isSubmittingFinal || timeExpired
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-red-600 hover:bg-red-700"
+                  }`}
+                >
+                  <Flag size={16} className="sm:size-[18px]" />
+                  <span>Finish</span>
+                </button>
+              ) : (
+                // NEXT Button for all other segments
+                <button
+                  onClick={handleNextClick}
+                  disabled={
+                    shouldDisableNavigation ||
+                    isSubmittingSegment ||
+                    isAudioProcessing ||
+                    timeExpired
+                  }
+                  className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full transition-colors ${
+                    shouldDisableNavigation ||
+                    isSubmittingSegment ||
+                    isAudioProcessing ||
+                    timeExpired
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-[#006b5e] hover:bg-[#005a4f]"
+                  }`}
+                >
+                  <span>Next</span>
+                  <ArrowRight size={16} className="sm:size-[18px]" />
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </footer>
 
         {/* Result Modal - Made Responsive */}
@@ -1071,7 +1705,7 @@ const PracticeDialogue = () => {
                   Overall Performance Summary
                 </h3>
 
-                <div className="grid  grid-cols-2  lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
                   <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
                     <p className="text-xs sm:text-sm text-gray-600 mb-1">
                       Final Score
@@ -1355,7 +1989,7 @@ const PracticeDialogue = () => {
                                   <p className="text-[10px] sm:text-xs text-red-600 font-medium">
                                     Cultural Context
                                   </p>
-                                  <p className="text-base sm:text-lg font-bold text-red-700">
+                                  <p className="font-semibold text-red-700 text-sm sm:text-base">
                                     {segment.aiScores.cultural_context_score ||
                                       segment.culturalControlScore}
                                   </p>
@@ -1365,7 +1999,7 @@ const PracticeDialogue = () => {
                                   <p className="text-[10px] sm:text-xs text-yellow-600 font-medium">
                                     Response Management
                                   </p>
-                                  <p className="text-base sm:text-lg font-bold text-yellow-700">
+                                  <p className="font-semibold text-yellow-700 text-sm sm:text-base">
                                     {segment.aiScores
                                       .response_management_score ||
                                       segment.responseManagementScore}
@@ -1410,7 +2044,7 @@ const PracticeDialogue = () => {
           ) : (
             <div className="text-center py-6 sm:py-8">
               <div className="flex justify-center">
-                <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
               </div>
               <p className="mt-2 text-gray-600">Loading results...</p>
             </div>

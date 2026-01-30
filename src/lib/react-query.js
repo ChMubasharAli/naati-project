@@ -51,6 +51,7 @@ export const queryKeys = {
     all: ["auth"],
     profile: () => [...queryKeys.auth.all, "profile"],
     subscription: (userId) => [...queryKeys.auth.all, "subscription", userId],
+    status: (userId) => [...queryKeys.auth.all, "status", userId], // Add this
   },
   languages: {
     all: ["languages"],
@@ -69,9 +70,10 @@ export const queryKeys = {
   },
   segments: {
     all: ["segments"],
-    list: () => [...queryKeys.segments.all, "list"],
+    list: (dialogueId) => [...queryKeys.segments.all, "list", dialogueId], // DialogueId include karein
     detail: (id) => [...queryKeys.segments.all, "detail", id],
   },
+
   users: {
     all: ["users"],
     list: () => [...queryKeys.users.all, "list"],
@@ -81,5 +83,23 @@ export const queryKeys = {
     all: ["transactions"],
     list: () => [...queryKeys.transactions.all, "list"],
     detail: (id) => [...queryKeys.transactions.all, "detail", id],
+  },
+
+  mockTests: {
+    all: ["mockTests"],
+    lists: () => [...queryKeys.mockTests.all, "list"],
+    list: () => [...queryKeys.mockTests.lists()],
+    details: () => [...queryKeys.mockTests.all, "detail"],
+    detail: (id) => [...queryKeys.mockTests.details(), id],
+  },
+  vocabulary: {
+    all: ["vocabulary"],
+    list: (filters = {}) => [...queryKeys.vocabulary.all, "list", filters],
+    detail: (id) => [...queryKeys.vocabulary.all, "detail", id],
+  },
+
+  subscriptions: {
+    all: ["subscriptions"],
+    user: (userId) => [...queryKeys.subscriptions.all, "user", userId],
   },
 };

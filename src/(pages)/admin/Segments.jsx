@@ -8,17 +8,15 @@ import {
   MessageCircle,
   Search,
   X,
-  Filter,
   Play,
   Pause,
   Loader2,
-  Music,
-  FileAudio,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 // Import APIs
-import { fetchDialogues } from "../../api/dialogues";
 import {
   fetchSegments,
   createSegment,
@@ -30,10 +28,22 @@ import { showSuccessToast, queryKeys } from "../../lib/react-query";
 const SegmentsManagement = () => {
   const queryClient = useQueryClient();
   const audioRefs = useRef({});
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Get data from location state
+  const { dialogueTitle, dialogueId, languageName, domainName } =
+    location.state || {};
+
+  // Check if required data exists
+  useEffect(() => {
+    if (!dialogueTitle || !dialogueId) {
+      navigate(-1);
+    }
+  }, [dialogueTitle, dialogueId, navigate]);
 
   // State
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterDialogue, setFilterDialogue] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [selectedSegment, setSelectedSegment] = useState(null);
@@ -41,7 +51,7 @@ const SegmentsManagement = () => {
 
   // Form state
   const [formData, setFormData] = useState({
-    dialogueId: "",
+    dialogueId: dialogueId || "",
     textContent: "",
     segmentOrder: "",
   });
@@ -50,16 +60,11 @@ const SegmentsManagement = () => {
   const [audioFile, setAudioFile] = useState(null);
   const [suggestedAudioFile, setSuggestedAudioFile] = useState(null);
 
-  // Fetch dialogues
-  const { data: dialoguesData } = useQuery({
-    queryKey: queryKeys.dialogues.list(),
-    queryFn: fetchDialogues,
-  });
-
-  // Fetch segments
+  // Fetch segments for the specific dialogue
   const { data: segmentsData, isLoading } = useQuery({
-    queryKey: queryKeys.segments.list({ dialogue: filterDialogue }),
-    queryFn: () => fetchSegments(filterDialogue),
+    queryKey: queryKeys.segments.list(dialogueId),
+    queryFn: () => fetchSegments(dialogueId),
+    enabled: !!dialogueId,
   });
 
   // Create mutation
@@ -69,7 +74,9 @@ const SegmentsManagement = () => {
       showSuccessToast("Segment created successfully!");
       setIsModalOpen(false);
       resetForm();
-      queryClient.invalidateQueries({ queryKey: queryKeys.segments.list() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.segments.list(dialogueId),
+      });
     },
     onError: (error) => {
       alert(error.message);
@@ -83,7 +90,9 @@ const SegmentsManagement = () => {
       showSuccessToast("Segment updated successfully!");
       setIsModalOpen(false);
       resetForm();
-      queryClient.invalidateQueries({ queryKey: queryKeys.segments.list() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.segments.list(dialogueId),
+      });
     },
     onError: (error) => {
       alert(error.message);
@@ -95,17 +104,28 @@ const SegmentsManagement = () => {
     mutationFn: deleteSegment,
     onSuccess: () => {
       showSuccessToast("Segment deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: queryKeys.segments.list() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.segments.list(dialogueId),
+      });
     },
     onError: (error) => {
       alert(error.message);
     },
   });
 
+  // Effect to refetch when dialogueId changes
+  useEffect(() => {
+    if (dialogueId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.segments.list(dialogueId),
+      });
+    }
+  }, [dialogueId, queryClient]);
+
   // Reset form
   const resetForm = () => {
     setFormData({
-      dialogueId: filterDialogue || "",
+      dialogueId: dialogueId || "",
       textContent: "",
       segmentOrder: "",
     });
@@ -118,16 +138,13 @@ const SegmentsManagement = () => {
   const handleCreate = () => {
     setModalMode("create");
     const segments = segmentsData?.data?.segments || [];
-    const filteredSegments = filterDialogue
-      ? segments.filter((s) => s.dialogueId === parseInt(filterDialogue))
-      : segments;
     const maxOrder =
-      filteredSegments.length > 0
-        ? Math.max(...filteredSegments.map((s) => s.segmentOrder))
+      segments.length > 0
+        ? Math.max(...segments.map((s) => s.segmentOrder))
         : 0;
 
     setFormData({
-      dialogueId: filterDialogue || "",
+      dialogueId: dialogueId || "",
       textContent: "",
       segmentOrder: (maxOrder + 1).toString(),
     });
@@ -159,11 +176,7 @@ const SegmentsManagement = () => {
     // Add text fields
     formDataObj.append("textContent", formData.textContent.trim());
     formDataObj.append("segmentOrder", formData.segmentOrder);
-
-    // Add dialogueId for create mode
-    if (modalMode === "create") {
-      formDataObj.append("dialogueId", formData.dialogueId);
-    }
+    formDataObj.append("dialogueId", formData.dialogueId);
 
     // Add audio files
     if (audioFile) {
@@ -285,40 +298,57 @@ const SegmentsManagement = () => {
   }, []);
 
   // Extract data
-  const dialogues = dialoguesData?.data?.dialogues || [];
   const segments = segmentsData?.data?.segments || [];
 
-  // Filter segments
+  // Filter segments based on search
   const filteredSegments = segments
-    .filter(
-      (segment) =>
-        segment.textContent.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (!filterDialogue || segment.dialogueId === parseInt(filterDialogue)),
+    .filter((segment) =>
+      segment.textContent.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     .sort((a, b) => a.segmentOrder - b.segmentOrder);
 
-  // Get dialogue name
-  const getDialogueName = (dialogueId) => {
-    const dialogue = dialogues.find((d) => d.id === dialogueId);
-    return dialogue ? dialogue.title : `Dialogue ${dialogueId}`;
-  };
+  // Don't render anything if navigating back
+  if (!dialogueTitle || !dialogueId) {
+    return null;
+  }
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 bg-white  shadow-lg border border-gray-200 max-h-[calc(100vh-64px)] lg:max-h-screen h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
+          <div className="flex items-center gap-2 mb-4 flex-wrap ">
+            <button
+              onClick={() => navigate("/admin/languages")}
+              className="flex cursor-pointer items-center gap-1 px-3 py-1 text-sm  text-emerald-600 bg-gray-100 rounded-lg transition-all"
+            >
+              <ArrowLeft size={16} />
+              Go to Languages
+            </button>
+            <button
+              onClick={() => navigate(-1)}
+              className="flex cursor-pointer items-center gap-1 px-3 py-1 text-sm  text-emerald-600 bg-gray-100 rounded-lg transition-all"
+            >
+              <ArrowLeft size={16} />
+              Back to Dialogues
+            </button>
+          </div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <MessageCircle className="w-7 h-7 text-emerald-600" />
-            Segments Management
+            Segments Management - {dialogueTitle}
           </h2>
           <p className="text-gray-600 text-sm mt-1">
-            Manage dialogue segments and their audio content
+            Manage segments for dialogue: {dialogueTitle}
+            {domainName && languageName && (
+              <span className="ml-2 text-gray-500">
+                ({domainName} • {languageName})
+              </span>
+            )}
           </p>
         </div>
         <button
           onClick={handleCreate}
-          disabled={dialogues.length === 0}
+          disabled={isLoading}
           className="flex cursor-pointer items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={18} />
@@ -326,9 +356,9 @@ const SegmentsManagement = () => {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="relative">
+      {/* Search */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
@@ -336,37 +366,22 @@ const SegmentsManagement = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            disabled={isLoading}
           />
-        </div>
-
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <select
-            value={filterDialogue}
-            onChange={(e) => setFilterDialogue(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-          >
-            <option value="">All Dialogues</option>
-            {dialogues.map((dialogue) => (
-              <option key={dialogue.id} value={dialogue.id}>
-                {dialogue.title}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 flex-1  overflow-y-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 left-0">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs  font-semibold text-gray-700 uppercase tracking-wider">
                 Order
               </th>
 
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Dialogue
+                Text Content
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Audio
@@ -383,7 +398,7 @@ const SegmentsManagement = () => {
             {isLoading ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="5"
                   className="px-6 py-12 text-center text-gray-500"
                 >
                   <div className="flex flex-col items-center justify-center">
@@ -397,12 +412,12 @@ const SegmentsManagement = () => {
             ) : filteredSegments.length === 0 ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="5"
                   className="px-6 py-12 text-center text-gray-500"
                 >
-                  {searchTerm || filterDialogue
+                  {searchTerm
                     ? "No segments found matching your search"
-                    : "No segments found"}
+                    : "No segments found for this dialogue"}
                 </td>
               </tr>
             ) : (
@@ -427,11 +442,13 @@ const SegmentsManagement = () => {
                       </div>
                     </td>
 
-                    {/* Dialogue */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        {getDialogueName(segment.dialogueId)}
-                      </span>
+                    {/* Text Content */}
+                    <td className="px-6 py-4">
+                      <div className="max-w-md">
+                        <p className="text-sm text-gray-900 line-clamp-2">
+                          {segment.textContent}
+                        </p>
+                      </div>
                     </td>
 
                     {/* Audio */}
@@ -538,18 +555,8 @@ const SegmentsManagement = () => {
       {/* Results Count */}
       {!isLoading && segments.length > 0 && (
         <div className="mt-4 text-sm text-gray-600">
-          Showing {filteredSegments.length} of {segments.length} segments
-          {filterDialogue &&
-            dialogues.find((d) => d.id === parseInt(filterDialogue)) && (
-              <span className="ml-2 text-blue-600">
-                (Filtered by:{" "}
-                {
-                  dialogues.find((d) => d.id === parseInt(filterDialogue))
-                    ?.title
-                }
-                )
-              </span>
-            )}
+          Showing {filteredSegments.length} of {segments.length} segments for "
+          {dialogueTitle}"
         </div>
       )}
 
@@ -571,29 +578,21 @@ const SegmentsManagement = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              {/* Dialogue Selection (only for create) */}
-              {modalMode === "create" && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Dialogue *
-                  </label>
-                  <select
-                    value={formData.dialogueId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, dialogueId: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                    required
-                  >
-                    <option value="">Select Dialogue</option>
-                    {dialogues.map((dialogue) => (
-                      <option key={dialogue.id} value={dialogue.id}>
-                        {dialogue.title}
-                      </option>
-                    ))}
-                  </select>
+              {/* Dialogue Display (Static) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Dialogue
+                </label>
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
+                  <span className="text-gray-700 font-medium">
+                    {dialogueTitle}
+                  </span>
+                  <input type="hidden" value={formData.dialogueId} readOnly />
                 </div>
-              )}
+                <p className="text-sm text-gray-500 mt-1">
+                  Dialogue cannot be changed
+                </p>
+              </div>
 
               {/* Text Content */}
               <div>
@@ -609,6 +608,9 @@ const SegmentsManagement = () => {
                   placeholder="Enter the segment text content..."
                   rows="4"
                   required
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                 />
               </div>
 
@@ -627,6 +629,9 @@ const SegmentsManagement = () => {
                   placeholder="1"
                   min="1"
                   required
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                 />
               </div>
 

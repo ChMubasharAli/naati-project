@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { Search, Filter, Play } from "lucide-react";
+import { Search, Play, Lock, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDialogues } from "../../api/dialogues";
 import { queryKeys } from "../../lib/react-query";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const ShowAllDialogues = () => {
+  const { user, userLanguage } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterLanguage, setFilterLanguage] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
 
   // Use React Query to fetch dialogues
   const {
@@ -16,23 +19,40 @@ const ShowAllDialogues = () => {
     isError,
   } = useQuery({
     queryKey: queryKeys.dialogues.list(),
-    queryFn: fetchDialogues,
+    queryFn: () => fetchDialogues(user?.id, userLanguage?.id),
+    enabled: Boolean(user?.id && userLanguage?.id),
+    retry: 2,
+    retryDelay: 1000,
   });
 
-  // Extract dialogues from response
+  // Extract data from response
   const dialogues = dialoguesData?.data?.dialogues || [];
+  const isSubscribed = dialoguesData?.isSubscribed || false;
+  const limits = dialoguesData?.limits || {};
+  const completeDialogueLimits = limits?.complete_dialogue || {};
+  const attemptCount = completeDialogueLimits?.attemptCount || 0;
+  const maxLimit = completeDialogueLimits?.maxLimit || 0;
+  const limitRemaining = completeDialogueLimits?.limitRemaining || 0;
 
-  // Get unique languages for filter
-  const languages = [...new Set(dialogues.map((d) => d.Language?.name))].sort();
+  // Check if user can practice dialogue
+  const canPracticeDialogue = isSubscribed || limitRemaining > 0;
 
-  // Filter dialogues
+  // Filter dialogues based on search term, status, and difficulty
   const filteredDialogues = dialogues.filter((dialogue) => {
+    // Search filter
     const matchesSearch = dialogue.title
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const matchesLanguage =
-      !filterLanguage || dialogue.Language?.name === filterLanguage;
-    return matchesSearch && matchesLanguage;
+
+    // Status filter
+    const matchesStatus =
+      statusFilter === "all" || dialogue.status === statusFilter;
+
+    // Difficulty filter
+    const matchesDifficulty =
+      difficultyFilter === "all" || dialogue.difficulty === difficultyFilter;
+
+    return matchesSearch && matchesStatus && matchesDifficulty;
   });
 
   // Difficulty badge colors
@@ -52,6 +72,41 @@ const ShowAllDialogues = () => {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
+  // Get practice button based on subscription status
+  const getPracticeButton = (dialogue) => {
+    if (canPracticeDialogue) {
+      return (
+        <Link
+          to={`/user/practice-dialogue?dialogueId=${dialogue.id}&examType=complete_dialogue&languageCode=${dialogue.Language?.langCode}&languageName=${dialogue.Language?.name}`}
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
+        >
+          <Play size={16} fill="currentColor" />
+          Practice Dialogue
+        </Link>
+      );
+    } else {
+      return (
+        <button
+          disabled
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-gray-400 to-gray-500 text-white font-semibold rounded-lg opacity-70 cursor-not-allowed"
+          title="Free trial ended. Please switch language or buy subscription."
+        >
+          <Lock size={16} />
+          Practice Dialogue
+        </button>
+      );
+    }
+  };
+
+  // Status badge colors
+  const getStatusStyle = (status) => {
+    const styles = {
+      completed: "bg-green-100 text-green-700",
+      pending: "bg-yellow-100 text-yellow-700",
+    };
+    return styles[status] || "bg-gray-100 text-gray-700";
+  };
+
   return (
     <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
       {/* Header */}
@@ -62,10 +117,54 @@ const ShowAllDialogues = () => {
         <p className="text-gray-600">
           Choose a dialogue to practice your NAATI CCL skills
         </p>
+
+        {/* Trial Status Header */}
+        {!isSubscribed && (
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="text-sm text-amber-800 mb-1">
+                  <span className="font-semibold">Trial Status:</span>{" "}
+                  <span className="ml-2 text-red-600">
+                    (No trial attempts left)
+                  </span>
+                </div>
+
+                {/* Message based on trial status */}
+                {limitRemaining > 0 ? (
+                  <p className="text-xs text-amber-700">
+                    You can practice any one of the available mock tests. Choose
+                    wisely!
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-700">
+                    Your trial for this language has ended. You can either
+                    upgrade your subscription or switch to a different language
+                    to continue practicing.
+                  </p>
+                )}
+
+                {/* Upgrade link only when no attempts left */}
+                {!isSubscribed && limitRemaining === 0 && (
+                  <div className="mt-2">
+                    <Link
+                      to="/user/subscriptions"
+                      className="inline-flex items-center text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+                    >
+                      Upgrade to unlock unlimited access →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -77,19 +176,51 @@ const ShowAllDialogues = () => {
           />
         </div>
 
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <select
-            value={filterLanguage}
-            onChange={(e) => setFilterLanguage(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
+        {/* Status Filter Buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setStatusFilter("all")}
+            className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
+              statusFilter === "all"
+                ? "bg-emerald-500 text-white border-emerald-500"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
           >
-            <option value="">All Languages</option>
-            {languages.map((lang) => (
-              <option key={lang} value={lang}>
-                {lang}
-              </option>
-            ))}
+            All
+          </button>
+          <button
+            onClick={() => setStatusFilter("completed")}
+            className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
+              statusFilter === "completed"
+                ? "bg-green-500 text-white border-green-500"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Completed
+          </button>
+          <button
+            onClick={() => setStatusFilter("pending")}
+            className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
+              statusFilter === "pending"
+                ? "bg-yellow-500 text-white border-yellow-500"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Pending
+          </button>
+        </div>
+
+        {/* Difficulty Filter Dropdown */}
+        <div className="relative">
+          <select
+            value={difficultyFilter}
+            onChange={(e) => setDifficultyFilter(e.target.value)}
+            className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
+          >
+            <option value="all">All Difficulties</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
           </select>
         </div>
       </div>
@@ -101,6 +232,9 @@ const ShowAllDialogues = () => {
             <tr>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Dialogue
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                Status
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Difficulty
@@ -123,7 +257,7 @@ const ShowAllDialogues = () => {
             {isLoading ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   className="px-6 py-12 text-center text-gray-500"
                 >
                   Loading dialogues...
@@ -131,14 +265,14 @@ const ShowAllDialogues = () => {
               </tr>
             ) : isError ? (
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-red-500">
+                <td colSpan="7" className="px-6 py-12 text-center text-red-500">
                   Failed to load dialogues. Please try again.
                 </td>
               </tr>
             ) : filteredDialogues.length === 0 ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   className="px-6 py-12 text-center text-gray-500"
                 >
                   No dialogues found
@@ -177,8 +311,17 @@ const ShowAllDialogues = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusStyle(
+                        dialogue.status,
+                      )}`}
+                    >
+                      {dialogue.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold capitalize ${getDifficultyStyle(
-                        dialogue.difficulty
+                        dialogue.difficulty,
                       )}`}
                     >
                       {dialogue.difficulty}
@@ -200,13 +343,7 @@ const ShowAllDialogues = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <Link
-                      to={`/user/practice-dialogue?dialogueId=${dialogue.id}&examType=complete_dialogue&languageCode=${dialogue.Language?.langCode}`}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
-                    >
-                      <Play size={16} fill="currentColor" />
-                      Practice
-                    </Link>
+                    {getPracticeButton(dialogue)}
                   </td>
                 </tr>
               ))

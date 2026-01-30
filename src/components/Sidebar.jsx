@@ -8,6 +8,7 @@ import { notifications } from "@mantine/notifications";
 import UpdateLoggedInUser from "./UpdateLoggedInUser";
 import { LogOut, MoreVertical, X, User, Brain } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import LanguageSwitcher from "./LanguageSwither";
 
 export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
   const queryClient = useQueryClient();
@@ -69,7 +70,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
           {/* Mobile Header */}
           <div className="p-6 border-b border-white/10 shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-linear-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
                 <Brain className="w-6 h-6 text-white" />
               </div>
               <div className="text-white text-xl font-bold">PREP SMART</div>
@@ -94,7 +95,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
                     className={({ isActive }) =>
                       `w-full flex items-center px-4 py-3 rounded-xl transition-all duration-200 group ${
                         isActive
-                          ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-white border border-emerald-500/30"
+                          ? "bg-linear-to-r from-emerald-500/20 to-teal-500/20 text-white border border-emerald-500/30"
                           : "text-slate-400 hover:bg-white/5 hover:text-white"
                       }`
                     }
@@ -126,7 +127,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
               onClick={() => handleOpenModal("update")}
               className="flex items-center space-x-3 bg-white/5 rounded-xl p-3 hover:bg-white/10 cursor-pointer transition-all duration-200 border border-white/10 group"
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shrink-0">
+              <div className="w-10 h-10 bg-linear-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shrink-0">
                 {logedInUser?.name ? (
                   <span className="text-white font-semibold text-sm">
                     {logedInUser.name.charAt(0).toUpperCase()}
@@ -155,9 +156,11 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
       {/* Desktop Version */}
       <div className="w-64 bg-slate-900 lg:flex hidden flex-col shadow-2xl relative z-10 border-r border-white/10">
         {/* Desktop Logo */}
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+        <div className="p-6 border-b border-white/10 ">
+          <div
+            className={`flex items-center gap-3 ${logedInUser?.role === "user" ? "mb-4" : ""}`}
+          >
+            <div className="w-12 h-12 bg-linear-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
               <Brain className="w-7 h-7 text-white" />
             </div>
             <div>
@@ -165,6 +168,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
               <div className="text-slate-400 text-xs">CCL Platform</div>
             </div>
           </div>
+          {logedInUser.role === "user" && <LanguageSwitcher />}
         </div>
 
         {/* Desktop Navigation */}
@@ -179,7 +183,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
                   className={({ isActive }) =>
                     `w-full flex items-center px-4 py-3 rounded-xl transition-all duration-200 group ${
                       isActive
-                        ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-white border border-emerald-500/30 shadow-lg shadow-emerald-500/10"
+                        ? "bg-linear-to-r from-emerald-500/20 to-teal-500/20 text-white border border-emerald-500/30 shadow-lg shadow-emerald-500/10"
                         : "text-slate-400 hover:bg-white/5 hover:text-white"
                     }`
                   }
@@ -222,7 +226,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
             <Avatar
               color="dark"
               radius="xl"
-              className="bg-gradient-to-br from-emerald-500 to-teal-500"
+              className="bg-linear-to-br from-emerald-500 to-teal-500"
             >
               {logedInUser?.name?.charAt(0).toUpperCase() || "A"}
             </Avatar>
@@ -308,7 +312,7 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
                 <Button
                   size="sm"
                   radius="md"
-                  className="!bg-gradient-to-r !from-emerald-500 !to-teal-500 text-white !font-semibold transition-all hover:!from-emerald-600 hover:!to-teal-600"
+                  className="!bg-linear-to-r !from-emerald-500 !to-teal-500 text-white !font-semibold transition-all hover:!from-emerald-600 hover:!to-teal-600"
                   onClick={handleLogout}
                   leftSection={<LogOut size={16} />}
                 >

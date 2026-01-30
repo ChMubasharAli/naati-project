@@ -33,6 +33,13 @@ import PaymentFailure from "./components/stripe-pages/PaymentFailure";
 import SubscriptionsManagement from "./(pages)/admin/Subscriptions";
 import TransactionsManagement from "./(pages)/admin/Transections";
 import UserMessages from "./(pages)/admin/UserMessages";
+import MockTestManagement from "./(pages)/admin/MockTestManagement";
+import MockTest from "./(pages)/user/mock-test/MockTest";
+import PracticeMockTest from "./(pages)/user/mock-test/PracticeMockTest";
+import VocabularyManagement from "./(pages)/admin/Vocabulary";
+import LanguageSwitcher from "./components/LanguageSwither";
+import UserSubscriptions from "./(pages)/user/UserSubscriptions";
+import UserVocabulary from "./(pages)/user/UserVocabulary";
 
 export default function App() {
   return (
@@ -113,6 +120,8 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="languages" element={<Languages />} />
+            <Route path="vocabulary" element={<VocabularyManagement />} />
+            <Route path="mock-test" element={<MockTestManagement />} />
             <Route path="domains" element={<Domains />} />
             <Route path="dialogues" element={<Dialogues />} />
             <Route path="segments" element={<Segments />} />
@@ -127,17 +136,23 @@ export default function App() {
 
         <Route element={<UserProtectedRoute />}>
           <Route path="/user" element={<UserLayout />}>
-            <Route index element={<ShowAllDialogues />} />
+            <Route index element={<UserDashboard />} />
+            <Route path="vocabulary" element={<UserVocabulary />} />
+            <Route path="dialogues" element={<ShowAllDialogues />} />
             <Route path="practice-dialogue" element={<PracticeDialogue />} />
+            <Route path="mock-test" element={<MockTest />} />
+            <Route path="mock-test-practice" element={<PracticeMockTest />} />
             <Route path="rapid-review" element={<ShowAllRapidDialogues />} />
             <Route path="rapid-review-dialogues" element={<RapidReview />} />
             <Route path="subscriptions" element={<Courses />} />
+            <Route path="user-subscriptions" element={<UserSubscriptions />} />
           </Route>
         </Route>
 
         {/* Stripe payment routes success and failure  */}
         <Route path="/success" element={<PaymentSuccess />} />
         <Route path="/failure" element={<PaymentFailure />} />
+        <Route path="/languageSwitcher" element={<LanguageSwitcher />} />
 
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFound />} />

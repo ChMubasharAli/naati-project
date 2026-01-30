@@ -1,7 +1,5 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState } from "react";
 import apiClient from "../api/axios";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "../lib/react-query";
 
 export const AuthContext = createContext({});
 
@@ -10,9 +8,6 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const queryClient = useQueryClient();
-
-  // Initialize directly in useState
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("logedInUser");
     return stored ? JSON.parse(stored) : null;
@@ -22,91 +17,129 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem("token") || null;
   });
 
-  // React Query se subscription fetch karo
-  const { data: subscriptionData, refetch: refetchSubscription } = useQuery({
-    queryKey: queryKeys.auth.subscription(user?.id),
-    queryFn: async () => {
-      if (!user?.id || !token) return null;
-
-      try {
-        const response = await apiClient.get(
-          `/api/v1/subscriptions/status/${user.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-        return response.data;
-      } catch (error) {
-        console.error("Error fetching subscription:", error);
-        return null;
-      }
-    },
-    enabled: !!user?.id && !!token && user?.role === "user", // Sirf user role ke liye
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
+  const [userStatus, setUserStatus] = useState(() => {
+    const stored = localStorage.getItem("userStatus");
+    return stored ? JSON.parse(stored) : null;
   });
 
-  // Extract subscription from data
-  const subscription = subscriptionData?.subscription;
+  // NEW: userLanguage state
+  const [userLanguage, setUserLanguage] = useState(() => {
+    const stored = localStorage.getItem("userLanguage");
+    return stored ? JSON.parse(stored) : null;
+  });
 
-  // 1. Login (with subscription fetch ONLY for users)
+  // Helper function to save language preference
+  const saveUserLanguage = (languageObject) => {
+    if (languageObject && Object.keys(languageObject).length > 0) {
+      localStorage.setItem("userLanguage", JSON.stringify(languageObject));
+      setUserLanguage(languageObject);
+    }
+  };
+
+  // 1. Login with status fetch (MODIFIED)
   const login = async (userData, authToken) => {
-    // Pehle user aur token save karo
     localStorage.setItem("token", authToken);
     localStorage.setItem("logedInUser", JSON.stringify(userData));
     setToken(authToken);
     setUser(userData);
 
-    // React Query automatically fetch karega subscription
-    // Agar user "user" role ka hai
+    // NEW: Save preferred language only if not already saved
+    if (userData?.preferredLanguage) {
+      saveUserLanguage(userData.preferredLanguage);
+    }
+
+    // Fetch initial status
+    await fetchAndSaveUserStatus(userData.id, authToken);
   };
 
-  // 2. Manual refresh function (for after subscription purchase)
-  const refreshSubscriptionStatus = useCallback(async () => {
-    if (user?.role === "user") {
-      // React Query cache invalidate karo aur dobara fetch karo
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.auth.subscription(user.id),
-      });
-      await refetchSubscription();
+  // 2. Core function to fetch and save status
+  const fetchAndSaveUserStatus = async (userId, authToken = token) => {
+    try {
+      if (!userId || !authToken) return null;
 
-      // Agar subscription active hai to localStorage se freeTestUsed remove karo
-      if (subscription?.isSubscription && subscription?.status === "active") {
-        localStorage.removeItem(`freeTestUsed_${user.id}`);
+      const response = await apiClient.get(`/api/v1/status?userId=${userId}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (response.data.success) {
+        const statusData = response.data.data;
+
+        // Save to localStorage AND state
+        localStorage.setItem("userStatus", JSON.stringify(statusData));
+        setUserStatus(statusData);
+
+        return statusData;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching user status:", error);
+      return null;
+    }
+  };
+
+  // NEW: Function to update language (complete replace)
+  const updateUserLanguage = (newLanguageObject) => {
+    if (newLanguageObject && Object.keys(newLanguageObject).length > 0) {
+      saveUserLanguage(newLanguageObject);
+      return true;
+    }
+    return false;
+  };
+
+  // 3. Manual refresh (subscription purchase ke baad call karo)
+  const refreshUserStatus = async () => {
+    if (user?.id && token) {
+      console.log("Refreshing user status...");
+      const newStatus = await fetchAndSaveUserStatus(user.id, token);
+
+      if (newStatus) {
+        console.log("User status updated successfully!");
+        console.log(
+          "Active subscriptions:",
+          newStatus.activeSubscriptionsCount,
+        );
       }
 
-      return subscriptionData;
+      return newStatus;
     }
     return null;
-  }, [user, queryClient, refetchSubscription, subscription, subscriptionData]);
+  };
 
-  // 3. Logout
+  // 4. Logout (MODIFIED)
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("logedInUser");
-    localStorage.removeItem("userSubscription");
-    queryClient.removeQueries({
-      queryKey: queryKeys.auth.subscription(user?.id),
-    });
+    localStorage.removeItem("userStatus");
+    localStorage.removeItem("userLanguage");
+    // NOTE: userLanguage ko remove nahi karenge, taki language preference persist rahe
     setToken(null);
     setUser(null);
+    setUserStatus(null);
+    setUserLanguage(null);
+    // NOTE: userLanguage state ko bhi clear nahi karenge
   };
 
   const value = {
+    // Basic auth
     user,
     token,
-    subscription,
     login,
     logout,
-    refreshSubscriptionStatus,
-    refetchSubscription,
     isAuthenticated: !!user && !!token,
-    hasActiveSubscription:
-      user?.role === "user" &&
-      subscription?.isSubscription &&
-      subscription?.status === "active",
+
+    // User status
+    userStatus,
+
+    // NEW: Language functionality
+    userLanguage,
+    updateUserLanguage, // Complete object replace karne ka function
+
+    // IMPORTANT: Refresh function (subscription purchase ke baad call karna)
+    refreshUserStatus,
+
+    // Helper getters
+    hasActiveSubscription: userStatus?.activeSubscriptionsCount > 0,
+    isTrial: userStatus?.isTrial || false,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

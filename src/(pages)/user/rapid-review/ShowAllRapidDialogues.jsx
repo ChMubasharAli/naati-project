@@ -1,13 +1,14 @@
 import React, { useState } from "react";
-import { Search, Filter, Play } from "lucide-react";
+import { Search, Play } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDialogues } from "../../../api/dialogues";
 import { queryKeys } from "../../../lib/react-query";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 
 const ShowAllRapidDialogues = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterLanguage, setFilterLanguage] = useState("");
 
   // Use React Query to fetch dialogues
   const {
@@ -22,17 +23,18 @@ const ShowAllRapidDialogues = () => {
   // Extract dialogues from response
   const dialogues = dialoguesData?.data?.dialogues || [];
 
-  // Get unique languages for filter
-  const languages = [...new Set(dialogues.map((d) => d.Language?.name))].sort();
-
-  // Filter dialogues
+  // Filter dialogues based on user's preferred language and search term
   const filteredDialogues = dialogues.filter((dialogue) => {
+    // Match user's preferred language with dialogue's language code
+    const matchesUserLanguage =
+      user?.preferredLanguage &&
+      dialogue.Language?.langCode === user.preferredLanguage;
+
     const matchesSearch = dialogue.title
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const matchesLanguage =
-      !filterLanguage || dialogue.Language?.name === filterLanguage;
-    return matchesSearch && matchesLanguage;
+
+    return matchesUserLanguage && matchesSearch;
   });
 
   // Difficulty badge colors
@@ -53,20 +55,20 @@ const ShowAllRapidDialogues = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 bg-white  max-h-[calc(100vh-64px)] lg:max-h-screen h-full overflow-hidden flex flex-col">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Practice Dialogues
+          Rapid Review Dialogues
         </h1>
         <p className="text-gray-600">
-          Choose a dialogue to practice your NAATI CCL skills
+          Choose a dialogue for rapid review practice
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="relative">
+      {/* Search Bar Only - Language Filter Removed */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
@@ -76,28 +78,12 @@ const ShowAllRapidDialogues = () => {
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
-
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <select
-            value={filterLanguage}
-            onChange={(e) => setFilterLanguage(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-          >
-            <option value="">All Languages</option>
-            {languages.map((lang) => (
-              <option key={lang} value={lang}>
-                {lang}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 flex-1 overflow-y-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 left-0">
             <tr>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Dialogue
@@ -135,13 +121,25 @@ const ShowAllRapidDialogues = () => {
                   Failed to load dialogues. Please try again.
                 </td>
               </tr>
+            ) : !user?.preferredLanguage ? (
+              <tr>
+                <td
+                  colSpan="6"
+                  className="px-6 py-12 text-center text-amber-600"
+                >
+                  Please set your preferred language in your profile to see
+                  dialogues.
+                </td>
+              </tr>
             ) : filteredDialogues.length === 0 ? (
               <tr>
                 <td
                   colSpan="6"
                   className="px-6 py-12 text-center text-gray-500"
                 >
-                  No dialogues found
+                  {searchTerm
+                    ? `No dialogues found matching "${searchTerm}" in ${user.preferredLanguage.toUpperCase()}`
+                    : `No dialogues available in ${user.preferredLanguage.toUpperCase()}`}
                 </td>
               </tr>
             ) : (
@@ -169,16 +167,13 @@ const ShowAllRapidDialogues = () => {
                         <div className="text-sm font-semibold text-gray-900">
                           {dialogue.title}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {dialogue.description}
-                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold capitalize ${getDifficultyStyle(
-                        dialogue.difficulty
+                        dialogue.difficulty,
                       )}`}
                     >
                       {dialogue.difficulty}
@@ -202,7 +197,7 @@ const ShowAllRapidDialogues = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <Link
                       to={`/user/rapid-review-dialogues?dialogueId=${dialogue.id}&examType=rapid_review&languageCode=${dialogue.Language?.langCode}`}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
+                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
                     >
                       <Play size={16} fill="currentColor" />
                       Practice
@@ -216,7 +211,7 @@ const ShowAllRapidDialogues = () => {
       </div>
 
       {/* Results Count */}
-      {!isLoading && !isError && (
+      {!isLoading && !isError && user?.preferredLanguage && (
         <div className="mt-4 text-sm text-gray-600">
           Showing{" "}
           <span className="font-semibold text-gray-900">
@@ -224,9 +219,13 @@ const ShowAllRapidDialogues = () => {
           </span>{" "}
           of{" "}
           <span className="font-semibold text-gray-900">
-            {dialogues.length}
+            {
+              dialogues.filter(
+                (d) => d.Language?.langCode === user.preferredLanguage,
+              ).length
+            }
           </span>{" "}
-          dialogues
+          dialogues in {user.preferredLanguage.toUpperCase()}
         </div>
       )}
     </div>

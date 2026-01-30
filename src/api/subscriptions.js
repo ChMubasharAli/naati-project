@@ -85,3 +85,53 @@ export const deleteSubscription = async (id) => {
     throw new Error(errorMessage);
   }
 };
+
+// this section is for user side fetch specific user subscriptions and user can delete subscription
+
+export const fetchUserSubscriptions = async (userId) => {
+  try {
+    const response = await apiClient.get(
+      `/api/v1/subscriptions/user/${userId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to fetch subscriptions";
+    throw new Error(errorMessage);
+  }
+};
+
+export const cancelSubscription = async (
+  subscriptionId,
+  userId,
+  cancelNow = false,
+) => {
+  try {
+    const response = await apiClient.patch(
+      `/api/v1/stripe/subscriptions/cancel/${subscriptionId}`,
+      {
+        userId,
+        cancelNow,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to cancel subscription";
+    throw new Error(errorMessage);
+  }
+};

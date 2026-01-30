@@ -1,5 +1,5 @@
 // /components/DomainsManagement.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -9,7 +9,9 @@ import {
   Search,
   X,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Import API functions
 import {
@@ -18,11 +20,21 @@ import {
   updateDomain,
   deleteDomain,
 } from "../../api/domains";
-import { fetchLanguages } from "../../api/languages";
 import { showSuccessToast, queryKeys } from "../../lib/react-query";
 
 const DomainsManagement = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { languageName, languageId } = location.state || {};
+
   const queryClient = useQueryClient();
+
+  // Check if languageId and languageName exist
+  useEffect(() => {
+    if (!languageName || !languageId) {
+      navigate(-1);
+    }
+  }, [languageName, languageId, navigate]);
 
   // State
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,16 +46,10 @@ const DomainsManagement = () => {
     description: "",
     difficulty: "easy",
     colorCode: "#3b82f6",
-    languageId: "",
+    languageId: languageId || "",
   });
 
-  // Fetch languages
-  const { data: languagesData, isLoading: languagesLoading } = useQuery({
-    queryKey: queryKeys.languages.list(),
-    queryFn: fetchLanguages,
-  });
-
-  // Fetch domains
+  // Fetch domains only (removed languages fetch)
   const { data: domainsData, isLoading: domainsLoading } = useQuery({
     queryKey: queryKeys.domains.list(),
     queryFn: fetchDomains,
@@ -87,7 +93,7 @@ const DomainsManagement = () => {
       description: "",
       difficulty: "easy",
       colorCode: "#3b82f6",
-      languageId: "",
+      languageId: languageId || "",
     });
     setSelectedDomain(null);
   };
@@ -134,15 +140,15 @@ const DomainsManagement = () => {
   };
 
   // Extract data
-  const languages = languagesData?.data || [];
   const domains = domainsData?.data?.domains || [];
-  const isLoading = languagesLoading || domainsLoading;
+  const isLoading = domainsLoading;
 
-  // Filter domains based on search
+  // Filter domains based on search and languageId
   const filteredDomains = domains.filter(
     (domain) =>
-      domain.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      domain.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+      (domain.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        domain.description?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      domain.languageId === parseInt(languageId), // Only show domains for the selected language
   );
 
   // Get difficulty badge class
@@ -159,17 +165,31 @@ const DomainsManagement = () => {
     }
   };
 
+  // Don't render anything if navigating back
+  if (!languageName || !languageId) {
+    return null;
+  }
+
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 bg-white  shadow-lg border border-gray-200  max-h-[calc(100vh-64px)] lg:max-h-screen h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex cursor-pointer items-center gap-1 px-3 py-1 text-sm  text-emerald-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all"
+            >
+              <ArrowLeft size={16} />
+              Back to Languages
+            </button>
+          </div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <BookOpen className="w-7 h-7 text-emerald-600" />
-            Domains Management
+            Domains Management - {languageName}
           </h2>
           <p className="text-gray-600 text-sm mt-1">
-            Manage practice domains for different languages
+            Manage practice domains for {languageName}
           </p>
         </div>
         <button
@@ -209,16 +229,28 @@ const DomainsManagement = () => {
 
       {/* Domains Grid */}
       {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto ">
           {filteredDomains.length === 0 ? (
             <div className="col-span-full text-center py-12 text-gray-500">
-              {searchTerm ? "No domains found" : "No domains available"}
+              {searchTerm
+                ? "No domains found"
+                : "No domains available for this language"}
             </div>
           ) : (
             filteredDomains.map((domain) => (
               <div
                 key={domain.id}
-                className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-emerald-400 hover:shadow-lg transition-all"
+                onClick={() => {
+                  navigate("/admin/dialogues", {
+                    state: {
+                      languageName,
+                      languageId,
+                      domainName: domain.title,
+                      domainId: domain.id,
+                    },
+                  });
+                }}
+                className="bg-white border-2 cursor-pointer  border-gray-200 rounded-xl p-5 hover:border-emerald-400 hover:shadow-lg transition-all"
               >
                 <div className="flex items-center justify-between mb-4">
                   <div
@@ -232,14 +264,20 @@ const DomainsManagement = () => {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleEdit(domain)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(domain);
+                      }}
                       className="p-2 cursor-pointer cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                       disabled={deleteMutation.isPending}
                     >
                       <Edit size={16} />
                     </button>
                     <button
-                      onClick={() => handleDelete(domain.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(domain.id);
+                      }}
                       className="p-2 cursor-pointer text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       disabled={deleteMutation.isPending}
                     >
@@ -272,7 +310,7 @@ const DomainsManagement = () => {
                     {domain.difficulty}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-                    {domain.Language?.name || "Unknown"}
+                    {languageName}
                   </span>
                 </div>
               </div>
@@ -282,9 +320,9 @@ const DomainsManagement = () => {
       )}
 
       {/* Domain Count */}
-      {!isLoading && domains.length > 0 && (
+      {!isLoading && filteredDomains.length > 0 && (
         <div className="mt-6 text-sm text-gray-600">
-          Showing {filteredDomains.length} of {domains.length} domains
+          Showing {filteredDomains.length} domains for {languageName}
         </div>
       )}
 
@@ -345,28 +383,17 @@ const DomainsManagement = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Language *
+                  Language
                 </label>
-                <select
-                  value={formData.languageId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, languageId: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                  required
-                  disabled={
-                    languagesLoading ||
-                    createMutation.isPending ||
-                    updateMutation.isPending
-                  }
-                >
-                  <option value="">Select Language</option>
-                  {languages.map((lang) => (
-                    <option key={lang.id} value={lang.id}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
+                  <span className="text-gray-700 font-medium">
+                    {languageName}
+                  </span>
+                  <input type="hidden" value={formData.languageId} readOnly />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Language cannot be changed
+                </p>
               </div>
 
               <div>

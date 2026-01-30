@@ -1,5 +1,5 @@
 // /components/DialoguesManagement.jsx
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -10,6 +10,7 @@ import {
   X,
   Clock,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 
 // Import API functions
@@ -19,12 +20,26 @@ import {
   updateDialogue,
   deleteDialogue,
 } from "../../api/dialogues";
-import { fetchLanguages } from "../../api/languages";
-import { fetchDomains } from "../../api/domains";
 import { showSuccessToast, queryKeys } from "../../lib/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const DialoguesManagement = () => {
+  const { user: loggedInUser } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Get data from location state
+  const { languageName, languageId, domainName, domainId } =
+    location.state || {};
+
+  // Check if required data exists
+  useEffect(() => {
+    if (!languageName || !languageId || !domainName || !domainId) {
+      navigate(-1);
+    }
+  }, [languageName, languageId, domainName, domainId, navigate]);
 
   // State
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,28 +47,19 @@ const DialoguesManagement = () => {
   const [modalMode, setModalMode] = useState("create");
   const [selectedDialogue, setSelectedDialogue] = useState(null);
   const [formData, setFormData] = useState({
-    domainId: "",
-    languageId: "",
+    domainId: domainId || "",
+    languageId: languageId || "",
     title: "",
     description: "",
     duration: "",
     difficulty: "easy",
   });
 
-  // Fetch data using React Query
-  const { data: languagesData, isLoading: languagesLoading } = useQuery({
-    queryKey: queryKeys.languages.list(),
-    queryFn: fetchLanguages,
-  });
-
-  const { data: domainsData, isLoading: domainsLoading } = useQuery({
-    queryKey: queryKeys.domains.list(),
-    queryFn: fetchDomains,
-  });
-
+  // Fetch dialogues only (removed languages and domains fetch)
   const { data: dialoguesData, isLoading: dialoguesLoading } = useQuery({
-    queryKey: queryKeys.dialogues.list(),
-    queryFn: fetchDialogues,
+    queryKey: queryKeys.dialogues.list(loggedInUser?.id, languageId),
+    queryFn: () => fetchDialogues(loggedInUser?.id, languageId),
+    enabled: !!languageId && !!loggedInUser?.id,
   });
 
   // Mutations
@@ -88,8 +94,8 @@ const DialoguesManagement = () => {
   // Helper functions
   const resetForm = () => {
     setFormData({
-      domainId: "",
-      languageId: "",
+      domainId: domainId || "",
+      languageId: languageId || "",
       title: "",
       description: "",
       duration: "",
@@ -142,17 +148,31 @@ const DialoguesManagement = () => {
     deleteMutation.mutate(id);
   };
 
-  // Extract data
-  const languages = languagesData?.data || [];
-  const domains = domainsData?.data?.domains || [];
-  const dialogues = dialoguesData?.data?.dialogues || [];
-  const isLoading = languagesLoading || domainsLoading || dialoguesLoading;
+  // Handle dialogue click to navigate to segments
+  const handleDialogueClick = (dialogue) => {
+    navigate("/admin/segments", {
+      state: {
+        dialogueTitle: dialogue.title,
+        dialogueId: dialogue.id,
+        languageName,
+        domainName,
+      },
+    });
+  };
 
-  // Filter dialogues based on search
+  // Extract data
+  const dialogues = dialoguesData?.data?.dialogues || [];
+  const isLoading = dialoguesLoading;
+
+  // Filter dialogues based on search, languageId and domainId
   const filteredDialogues = dialogues.filter(
     (dialogue) =>
-      dialogue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dialogue.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+      (dialogue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dialogue.description
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase())) &&
+      dialogue.languageId === parseInt(languageId) &&
+      dialogue.domainId === parseInt(domainId),
   );
 
   // Get difficulty badge class
@@ -177,17 +197,31 @@ const DialoguesManagement = () => {
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Don't render anything if navigating back
+  if (!languageName || !languageId || !domainName || !domainId) {
+    return null;
+  }
+
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 bg-white  shadow-lg border border-gray-200 max-h-[calc(100vh-64px)] lg:max-h-screen h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex cursor-pointer items-center gap-1 px-3 py-1 text-sm  text-emerald-600 bg-gray-100 rounded-lg transition-all"
+            >
+              <ArrowLeft size={16} />
+              Back to Domains
+            </button>
+          </div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <MessageSquare className="w-7 h-7 text-emerald-600" />
-            Dialogues Management
+            Dialogues Management - {domainName}
           </h2>
           <p className="text-gray-600 text-sm mt-1">
-            Manage practice dialogues for domains and languages
+            Manage practice dialogues for {domainName} ({languageName})
           </p>
         </div>
         <button
@@ -227,16 +261,19 @@ const DialoguesManagement = () => {
 
       {/* Dialogues List */}
       {!isLoading && (
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-y-auto">
           {filteredDialogues.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              {searchTerm ? "No dialogues found" : "No dialogues available"}
+              {searchTerm
+                ? "No dialogues found"
+                : "No dialogues available for this domain"}
             </div>
           ) : (
             filteredDialogues.map((dialogue) => (
               <div
                 key={dialogue.id}
-                className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-emerald-400 hover:shadow-lg transition-all"
+                className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-emerald-400 hover:shadow-lg transition-all cursor-pointer"
+                onClick={() => handleDialogueClick(dialogue)}
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
@@ -244,14 +281,13 @@ const DialoguesManagement = () => {
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1"
                         style={{
-                          backgroundColor:
-                            dialogue.Domain?.colorCode + "20" || "#e5e7eb",
+                          backgroundColor: "#e5e7eb",
                         }}
                       >
                         <MessageSquare
                           className="w-5 h-5"
                           style={{
-                            color: dialogue.Domain?.colorCode || "#6b7280",
+                            color: "#6b7280",
                           }}
                         />
                       </div>
@@ -266,10 +302,10 @@ const DialoguesManagement = () => {
                         )}
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                            {dialogue.Domain?.title || "Unknown Domain"}
+                            {domainName}
                           </span>
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-                            {dialogue.Language?.name || "Unknown Language"}
+                            {languageName}
                           </span>
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getDifficultyClass(
@@ -289,7 +325,10 @@ const DialoguesManagement = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div
+                    className="flex items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => handleEdit(dialogue)}
                       className="p-2 cursor-pointer text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -318,9 +357,9 @@ const DialoguesManagement = () => {
       )}
 
       {/* Count */}
-      {!isLoading && dialogues.length > 0 && (
+      {!isLoading && filteredDialogues.length > 0 && (
         <div className="mt-6 text-sm text-gray-600">
-          Showing {filteredDialogues.length} of {dialogues.length} dialogues
+          Showing {filteredDialogues.length} dialogues for {domainName}
         </div>
       )}
 
@@ -382,54 +421,32 @@ const DialoguesManagement = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Language *
+                    Language
                   </label>
-                  <select
-                    value={formData.languageId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, languageId: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                    required
-                    disabled={
-                      languagesLoading ||
-                      createMutation.isPending ||
-                      updateMutation.isPending
-                    }
-                  >
-                    <option value="">Select</option>
-                    {languages.map((lang) => (
-                      <option key={lang.id} value={lang.id}>
-                        {lang.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
+                    <span className="text-gray-700 font-medium">
+                      {languageName}
+                    </span>
+                    <input type="hidden" value={formData.languageId} readOnly />
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Language cannot be changed
+                  </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Domain *
+                    Domain
                   </label>
-                  <select
-                    value={formData.domainId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, domainId: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                    required
-                    disabled={
-                      domainsLoading ||
-                      createMutation.isPending ||
-                      updateMutation.isPending
-                    }
-                  >
-                    <option value="">Select</option>
-                    {domains.map((domain) => (
-                      <option key={domain.id} value={domain.id}>
-                        {domain.title}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
+                    <span className="text-gray-700 font-medium">
+                      {domainName}
+                    </span>
+                    <input type="hidden" value={formData.domainId} readOnly />
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Domain cannot be changed
+                  </p>
                 </div>
               </div>
 
@@ -482,7 +499,7 @@ const DialoguesManagement = () => {
                   disabled={
                     createMutation.isPending || updateMutation.isPending
                   }
-                  className="flex-1 cursor-pointer px-4 py-3  cursor-pointer border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50"
+                  className="flex-1 cursor-pointer px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>

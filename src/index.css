@@ -43,3 +43,47 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #0d9488;
 }
+
+
+/* volujme progress css classes  */
+
+.volume-slider {
+  width: 36px;          /* visual height */
+  height: 6px;
+  transform: rotate(-90deg);
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+
+/* track */
+.volume-slider::-webkit-slider-runnable-track {
+  background: #e5e7eb;
+  height: 6px;
+  border-radius: 999px;
+}
+
+/* thumb */
+.volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #ec4899;
+  border-radius: 50%;
+  margin-top: -3px;
+  cursor: pointer;
+}
+
+/* Firefox */
+.volume-slider::-moz-range-track {
+  background: #e5e7eb;
+  height: 6px;
+}
+
+.volume-slider::-moz-range-thumb {
+  background: #ec4899;
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+}

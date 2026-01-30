@@ -7,11 +7,12 @@ const getHeaders = () => ({
   Authorization: `Bearer ${getToken()}`,
 });
 
-export const fetchDialogues = async () => {
+export const fetchDialogues = async (userId, languageId) => {
   try {
-    const response = await apiClient.get("/api/v1/admin/dialogues", {
-      headers: getHeaders(),
-    });
+    const response = await apiClient.get(
+      `/api/v1/admin/dialogues?userId=${userId}&languageId=${languageId}`,
+      
+    );
     return response.data;
   } catch (error) {
     const errorMessage =
@@ -32,7 +33,7 @@ export const createDialogue = async (dialogueData) => {
           ...getHeaders(),
           "Content-Type": "application/json",
         },
-      }
+      },
     );
     return response.data;
   } catch (error) {
@@ -54,7 +55,7 @@ export const updateDialogue = async (id, dialogueData) => {
           ...getHeaders(),
           "Content-Type": "application/json",
         },
-      }
+      },
     );
     return response.data;
   } catch (error) {

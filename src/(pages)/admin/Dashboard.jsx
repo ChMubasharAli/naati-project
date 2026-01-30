@@ -128,9 +128,9 @@ const AdminDashboard = () => {
   const { totals, top } = dashboardData;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6  p-6 max-h-[calc(100dvh-64px)] lg:max-h-screen h-full overflow-hidden flex flex-col ">
       {/* Header */}
-      <div className="flex items-center gap-2 justify-end">
+      {/* <div className="flex items-center gap-2 justify-end">
         {isRefetching && (
           <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin" />
         )}
@@ -142,7 +142,7 @@ const AdminDashboard = () => {
           <RefreshCw className="w-4 h-4" />
           Refresh
         </button>
-      </div>
+      </div> */}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -222,9 +222,9 @@ const AdminDashboard = () => {
       </div>
 
       {/* Top Performers Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto rounded-2xl">
         {/* Top Used Dialogues */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6  overflow-y-auto">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
               <MessageCircle className="w-5 h-5 text-purple-600" />
@@ -268,7 +268,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Top Used Languages */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 overflow-y-auto">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
               <Globe className="w-5 h-5 text-orange-600" />
@@ -312,7 +312,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Top Performer Users */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 overflow-y-auto">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
               <Award className="w-5 h-5 text-emerald-600" />
