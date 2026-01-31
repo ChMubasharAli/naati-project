@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { fetchMockTests } from "../../../api/mockTests";
 import { queryKeys } from "../../../lib/react-query";
 import { useAuth } from "../../../context/AuthContext";
+import ShowMockTestResultButton from "../../../components/ShowMockTestResultButton";
 
 const ShowAllMockTests = () => {
   const { user, userLanguage } = useAuth();
@@ -123,15 +124,20 @@ const ShowAllMockTests = () => {
       {/* Search Bar - Only show if mock tests exist */}
       {mockTests.length > 0 && (
         <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search mock tests..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search mock tests..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Add Get Previous Results Button */}
+            <ShowMockTestResultButton />
           </div>
         </div>
       )}
@@ -311,7 +317,7 @@ const ShowAllMockTests = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         {canAccess.accessible ? (
                           <Link
-                            to={`/user/mock-test-practice?mockTestId=${mockTest.id}`}
+                            to={`/mock-test-practice?mockTestId=${mockTest.id}`}
                             className="inline-flex cursor-pointer items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
                           >
                             <Play size={16} fill="currentColor" />

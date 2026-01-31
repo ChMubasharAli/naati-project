@@ -391,7 +391,7 @@ const MockTestManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-                      {getLanguageName(test.language_id)}
+                      {test?.language?.name}
                     </span>
                   </td>
                   <td className="px-6 py-4">

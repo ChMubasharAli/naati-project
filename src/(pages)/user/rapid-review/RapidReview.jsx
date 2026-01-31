@@ -1,652 +1,937 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
-  ChevronLeft,
-  Play,
-  Square,
-  HelpCircle,
-  ArrowRight,
   User,
   Loader2,
-  RefreshCw,
-  BarChart3,
-  MessageSquare,
-  Volume2,
   Clock,
   CheckCircle,
-  Lock,
+  ArrowRight,
+  CircleQuestionMark,
+  Loader,
+  ArrowLeft,
+  Flag,
+  Mic,
+  Upload,
 } from "lucide-react";
-import { Modal, Button } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { FaTriangleExclamation } from "react-icons/fa6";
+import { Modal } from "@mantine/core";
 import { startExamAttempt, submitSegment } from "../../../api/exams";
 import { useAuth } from "../../../context/AuthContext";
 
+import { useQuery, useMutation } from "@tanstack/react-query";
+import AiResponseModal from "./RapidReviewExamResultModal";
+import RapidReviewPlayAndRecordSection from "../../../components/RapidReviewPlayAndRecordSection";
+
+const TOTAL_EXAM_TIME = 20 * 60; // 20 minutes in seconds
+const AUTO_RESTART_SECONDS = 30; // 30 seconds pehle restart
+
 const PracticeDialogue = () => {
-  // State variables
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user: loggedInUser, hasActiveSubscription } = useAuth();
+  const { user: loggedInUser } = useAuth();
+  const [volume, setVolume] = useState(50);
 
-  // 🔥 NEW: Rapid review daily limit tracking
-  const [dailyReviewsUsed, setDailyReviewsUsed] = useState(0);
-  const [isReviewAllowed, setIsReviewAllowed] = useState(true);
-
-  // Get URL parameters
   const dialogueId = searchParams.get("dialogueId");
-  const examType = searchParams.get("examType") || "rapid_review";
-  const languageCode = searchParams.get("languageCode");
+  const languageName = searchParams.get("language") || "English";
+  const tryAgain = searchParams.get("new");
 
-  // User ID from auth
   const userId = loggedInUser?.id;
 
-  // 🔥 NEW: Check daily limit on component mount
-  useEffect(() => {
-    if (loggedInUser && examType === "rapid_review" && !hasActiveSubscription) {
-      const today = new Date().toDateString();
-      const storedData = localStorage.getItem(
-        `dailyReviews_${loggedInUser.id}`,
-      );
-
-      if (storedData) {
-        const { date, count } = JSON.parse(storedData);
-        if (date === today) {
-          setDailyReviewsUsed(count);
-          if (count >= 5) {
-            setIsReviewAllowed(false);
-          }
-        } else {
-          // New day, reset counter
-          localStorage.setItem(
-            `dailyReviews_${loggedInUser.id}`,
-            JSON.stringify({
-              date: today,
-              count: 0,
-            }),
-          );
-          setDailyReviewsUsed(0);
-          setIsReviewAllowed(true);
-        }
-      } else {
-        // First time user
-        localStorage.setItem(
-          `dailyReviews_${loggedInUser.id}`,
-          JSON.stringify({
-            date: today,
-            count: 0,
-          }),
-        );
-        setDailyReviewsUsed(0);
-        setIsReviewAllowed(true);
-      }
-    }
-  }, [loggedInUser, examType, hasActiveSubscription]);
-
-  // Exam data state
   const [examData, setExamData] = useState(null);
   const [segments, setSegments] = useState([]);
+  const [filteredSegments, setFilteredSegments] = useState([]);
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [examAttemptId, setExamAttemptId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLastSegment, setIsLastSegment] = useState(false);
 
-  // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordedAudios, setRecordedAudios] = useState({});
   const [attemptsCount, setAttemptsCount] = useState({});
   const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [showRetryButton, setShowRetryButton] = useState(false);
   const [waveHeights, setWaveHeights] = useState([]);
 
-  // 🔥 NEW STATES FOR NEW FLOW
-  const [isSubmittingSegment, setIsSubmittingSegment] = useState(false);
-  const [segmentResult, setSegmentResult] = useState(null);
+  const [showRepeatConfirm, setShowRepeatConfirm] = useState(false);
+  const [segmentsStatus, setSegmentsStatus] = useState({});
+  const [blinkText, setBlinkText] = useState("");
+  const [recordingStatus, setRecordingStatus] = useState("idle");
+  const [isEvaluating, setIsEvaluating] = useState(false);
 
-  // Result modal
-  const [opened, { open, close }] = useDisclosure(false);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
 
-  // 🔥 CRITICAL FIX: Add initialization tracking refs
+  const [remainingTime, setRemainingTime] = useState(TOTAL_EXAM_TIME);
+  const [completedSeconds, setCompletedSeconds] = useState(0);
+  const [timerActive, setTimerActive] = useState(true);
+  const [timeExpired, setTimeExpired] = useState(false);
+  const [displayTime, setDisplayTime] = useState("20:00");
+
+  const [aiResponse, setAiResponse] = useState(null);
+  const [showAiPopup, setShowAiPopup] = useState(false);
+  const [submittedSegments, setSubmittedSegments] = useState([]);
+  const [showFinishButton, setShowFinishButton] = useState(false);
+  const [showRecordingCompleted, setShowRecordingCompleted] = useState(false);
+  const [tempAudioBlob, setTempAudioBlob] = useState(null);
+  const [showRecordingChoiceModal, setShowRecordingChoiceModal] =
+    useState(false);
+
+  // 🔥 NEW: Auto restart states
+  const [isAutoRestarting, setIsAutoRestarting] = useState(false);
+  const [restartCountdown, setRestartCountdown] = useState(30);
+
   const isInitializedRef = useRef(false);
   const initializationInProgressRef = useRef(false);
-
-  // Refs
+  const timerStartedRef = useRef(false);
+  const incrementApiIntervalRef = useRef(null);
+  const animationFrameRefTimer = useRef(null);
+  const startTimeRef = useRef(Date.now());
+  const accumulatedTimeRef = useRef(0);
+  const lastApiCallTimeRef = useRef(Date.now());
   const originalAudioRef = useRef(null);
-  const suggestedAudioRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const videoRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const dataArrayRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const hiddenAudioRef = useRef(null);
+  const restartTimeoutRef = useRef(null);
 
-  // Initialize wave heights
-  useEffect(() => {
-    const heights = Array.from({ length: 20 }, () => Math.random() * 100);
-    setWaveHeights(heights);
-  }, [currentSegmentIndex]);
-
-  // 🔥 FIXED: Initialize exam - RUNS ONLY ONCE
-  useEffect(() => {
-    // ✅ Early return conditions
-    if (!dialogueId || !userId) {
-      console.error("Missing dialogue ID or user ID");
-      navigate("/user/rapid-review");
-      return;
-    }
-
-    // ✅ Check daily limit for rapid review
-    if (
-      examType === "rapid_review" &&
-      !hasActiveSubscription &&
-      !isReviewAllowed
-    ) {
-      alert(
-        "You have used your 5 daily rapid reviews. Upgrade to premium for unlimited access.",
-      );
-      navigate("/user/rapid-review");
-      return;
-    }
-
-    // ✅ Already initialized check
-    if (isInitializedRef.current) {
-      return;
-    }
-
-    // ✅ Already in progress check
-    if (initializationInProgressRef.current) {
-      return;
-    }
-
-    // ✅ Mark as in progress
-    initializationInProgressRef.current = true;
-
-    const initializeExam = async () => {
-      try {
-        setIsLoading(true);
-
-        const examData = {
-          examType,
-          dialogueId: parseInt(dialogueId),
-          userId,
-        };
-
-        console.log("🔥 API CALL: startExamAttempt - ONLY ONCE");
-        const response = await startExamAttempt(examData);
-
-        // Save exam data
-        setExamData(response);
-        setSegments(response.segments || []);
-        setExamAttemptId(response.attempt.id);
-
-        // Initialize recordings and attempts objects
-        const initialRecordings = {};
-        const initialAttempts = {};
-        response.segments?.forEach((segment) => {
-          initialRecordings[segment.id] = null;
-          initialAttempts[segment.id] = 0;
-        });
-
-        setRecordedAudios(initialRecordings);
-        setAttemptsCount(initialAttempts);
-
-        // Check if it's the last segment
-        setIsLastSegment(response.segments.length === 1);
-
-        // Save to localStorage for persistence
-        localStorage.setItem("examData", JSON.stringify(response));
-
-        // ✅ Mark as initialized
-        isInitializedRef.current = true;
-      } catch (error) {
-        console.error("Failed to initialize exam:", error);
-        alert("Failed to start exam. Please try again.");
-        navigate("/user/rapid-review");
-      } finally {
-        setIsLoading(false);
-        initializationInProgressRef.current = false;
-      }
-    };
-
-    initializeExam();
-
-    // Cleanup on unmount
-    return () => {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [
-    dialogueId,
-    userId,
-    examType,
-    hasActiveSubscription,
-    isReviewAllowed,
-    navigate,
-  ]);
-
-  // Initialize camera
-  useEffect(() => {
-    const initializeCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
-
-        mediaStreamRef.current = stream;
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error("Camera access error:", error);
-      }
-    };
-
-    if (!isLoading && examData) {
-      initializeCamera();
-    }
-  }, [isLoading, examData]);
-
-  // Get current segment
-  const currentSegment = segments[currentSegmentIndex];
-
-  // 🔥 NEW: Get first 10 words for free users
-  const getLimitedTextContent = () => {
-    if (!currentSegment?.textContent) return "";
-
-    const words = currentSegment.textContent.split(" ");
-    if (hasActiveSubscription || examType !== "rapid_review") {
-      // Premium users or non-rapid-review get full text
-      return currentSegment.textContent;
-    } else {
-      // Free users for rapid review get only first 10 words
-      const firstTenWords = words.slice(0, 10).join(" ");
-      const remainingWords = words.slice(10).join(" ");
-
-      return {
-        visible: firstTenWords,
-        hidden: remainingWords,
-        totalWords: words.length,
-      };
-    }
-  };
-
-  const limitedTextContent = getLimitedTextContent();
-  const isTextLimited =
-    !hasActiveSubscription &&
-    examType === "rapid_review" &&
-    typeof limitedTextContent === "object";
-
-  // Get current segment's recording and attempts
+  const currentSegment = filteredSegments[currentSegmentIndex];
   const currentRecording = currentSegment
     ? recordedAudios[currentSegment.id]
     : null;
-  const currentAttempts = currentSegment ? attemptsCount[currentSegment.id] : 0;
+  const currentAttempts = currentSegment ? attemptsCount[currentSegment.id] : 1;
 
-  // Update last segment status
-  useEffect(() => {
-    if (segments.length > 0) {
-      setIsLastSegment(currentSegmentIndex === segments.length - 1);
+  const formatTime = useCallback((seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }, []);
+
+  // 🔥 REACT QUERY: API 1 (GET completed seconds)
+  const { data: initialTimeData = 0, isSuccess: isTimeDataSuccess } = useQuery({
+    queryKey: ["dialogueTime", userId, dialogueId, examData?.attempt?.id],
+    queryFn: async () => {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}?examAttemptId=${examData?.attempt?.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch completed seconds");
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        return data.data.completedSeconds || 0;
+      }
+      return 0;
+    },
+    enabled: !!userId && !!dialogueId && !!examData?.attempt?.id,
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  // 🔥 REACT QUERY: API 2 (PATCH increment)
+  const incrementMutation = useMutation({
+    mutationFn: async (seconds) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}/increment?examAttemptId=${examData?.attempt?.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ seconds }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to increment completed seconds");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      if (data.success) {
+        setCompletedSeconds((prev) => prev + variables);
+      }
+    },
+  });
+
+  const handleTimeExpired = useCallback(() => {
+    setTimerActive(false);
+    setTimeExpired(true);
+
+    if (animationFrameRefTimer.current) {
+      cancelAnimationFrame(animationFrameRefTimer.current);
+      animationFrameRefTimer.current = null;
     }
-  }, [currentSegmentIndex, segments]);
 
-  // Update retry button based on current recording
-  useEffect(() => {
-    if (currentSegment && recordedAudios[currentSegment.id]) {
-      setShowRetryButton(true);
-    } else {
-      setShowRetryButton(false);
+    if (incrementApiIntervalRef.current) {
+      clearInterval(incrementApiIntervalRef.current);
+      incrementApiIntervalRef.current = null;
     }
-  }, [currentSegment, recordedAudios]);
 
-  // Play original audio and auto-start recording when finished
-  const playOriginalAudioAndAutoRecord = () => {
-    if (originalAudioRef.current) {
-      // Create a hidden audio element for auto-play
-      const hiddenAudio = new Audio(currentSegment?.audioUrl);
+    setDisplayTime("00:00");
+    setRemainingTime(0);
+  }, []);
 
-      hiddenAudio
-        .play()
-        .then(() => {
-          setIsAudioPlaying(true);
+  // 🔥 NEW: Auto restart function
+  const performAutoRestart = useCallback(async () => {
+    console.log("🔄 Auto-restarting exam due to time limit...");
+    setIsAutoRestarting(true);
 
-          // Auto start recording when audio ends
-          hiddenAudio.onended = () => {
-            setIsAudioPlaying(false);
-            startRecording(); // Auto start recording
-          };
-
-          // If audio fails to play, show error
-          hiddenAudio.onerror = () => {
-            setIsAudioPlaying(false);
-            alert("Failed to play audio. Please try again.");
-          };
-        })
-        .catch((error) => {
-          console.error("Audio play error:", error);
-          setIsAudioPlaying(false);
-          alert("Failed to play audio. Please make sure audio is available.");
-        });
-    }
-  };
-
-  // Start recording
-  const startRecording = async () => {
     try {
-      const audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+      // Stop current timer
+      if (animationFrameRefTimer.current) {
+        cancelAnimationFrame(animationFrameRefTimer.current);
+      }
 
-      const recorder = new MediaRecorder(audioStream, {
-        mimeType: "audio/webm;codecs=opus",
-      });
+      // Reset all states
+      setTimerStartedRef(false);
+      setTimerActive(false);
+      setTimeExpired(false);
+      setCurrentSegmentIndex(0);
+      setSubmittedSegments([]);
+      setRecordedAudios({});
+      setAttemptsCount({});
+      setRestartCountdown(30);
 
-      const chunks = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
+      // Call API with new=true
+      const examDataPayload = {
+        examType: "complete_dialogue",
+        dialogueId: parseInt(dialogueId),
+        userId,
+        new: true, // Force restart
       };
 
-      recorder.onstop = async () => {
-        setIsRecording(false);
+      const response = await startExamAttempt(examDataPayload);
+      console.log("✅ Auto-restart API success:", response);
 
-        // Create audio blob
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+      const notDoneSegments = filterSegments(response.segments || []);
 
-        // Save recording for current segment
-        if (currentSegment) {
-          setRecordedAudios((prev) => ({
-            ...prev,
-            [currentSegment.id]: audioBlob,
-          }));
+      setExamData(response);
+      setSegments(response.segments || []);
+      setFilteredSegments(notDoneSegments);
+      setExamAttemptId(response.attempt.id);
+      setIsLastSegment(notDoneSegments.length === 1);
+      setIsAutoRestarting(false);
 
-          // Update attempts count for this segment
-          setAttemptsCount((prev) => ({
-            ...prev,
-            [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
-          }));
-        }
+      // Reset timer
+      setCompletedSeconds(0);
+      setRemainingTime(TOTAL_EXAM_TIME);
+      setDisplayTime(formatTime(TOTAL_EXAM_TIME));
 
-        // Stop all audio tracks
-        audioStream.getTracks().forEach((track) => track.stop());
-      };
+      // Restart timer
+      setTimerActive(true);
+      startTimeRef.current = Date.now();
+      accumulatedTimeRef.current = 0;
+      lastApiCallTimeRef.current = Date.now();
 
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
+      // Start smooth timer
+      startSmoothTimer(0);
     } catch (error) {
-      console.error("Recording error:", error);
-      alert("Microphone access denied. Please allow microphone access.");
+      console.error("❌ Auto-restart failed:", error);
+      alert("Failed to restart exam. Please refresh the page.");
+      setIsAutoRestarting(false);
     }
-  };
+  }, [dialogueId, userId, formatTime]);
 
-  // Stop recording
-  const stopRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-    }
-  };
+  const startSmoothTimer = useCallback(
+    (initialCompleted) => {
+      if (animationFrameRefTimer.current) {
+        cancelAnimationFrame(animationFrameRefTimer.current);
+      }
 
-  // Retry recording
-  const handleRetry = () => {
-    if (currentSegment) {
-      // Clear recording for current segment
-      setRecordedAudios((prev) => ({
-        ...prev,
-        [currentSegment.id]: null,
-      }));
+      setCompletedSeconds(initialCompleted);
 
-      // Play original audio again
-      playOriginalAudioAndAutoRecord();
-    }
-  };
+      const initialRemaining = TOTAL_EXAM_TIME - initialCompleted;
+      const initialRemainingValid = initialRemaining > 0 ? initialRemaining : 0;
 
-  // 🔥 UPDATED: Submit current segment and return response
-  const submitCurrentSegment = useCallback(
+      setRemainingTime(initialRemainingValid);
+      setDisplayTime(formatTime(initialRemainingValid));
+
+      if (initialRemainingValid <= 0) {
+        setTimeExpired(true);
+        handleTimeExpired();
+        return;
+      }
+
+      setTimerActive(true);
+      setTimeExpired(false);
+      startTimeRef.current = Date.now();
+      accumulatedTimeRef.current = initialCompleted;
+      lastApiCallTimeRef.current = Date.now();
+
+      let lastTimestamp = 0;
+
+      const updateTimer = (timestamp) => {
+        if (!lastTimestamp) lastTimestamp = timestamp;
+
+        const elapsed = Date.now() - startTimeRef.current;
+        const totalElapsedSeconds = accumulatedTimeRef.current + elapsed / 1000;
+        const remaining = Math.max(0, TOTAL_EXAM_TIME - totalElapsedSeconds);
+
+        setDisplayTime(formatTime(remaining));
+
+        if (timestamp - lastTimestamp >= 100) {
+          setRemainingTime(Math.floor(remaining));
+          lastTimestamp = timestamp;
+        }
+
+        const now = Date.now();
+        const secondsSinceLastApiCall =
+          (now - lastApiCallTimeRef.current) / 1000;
+
+        if (secondsSinceLastApiCall >= 10) {
+          const secondsToAdd = Math.floor(secondsSinceLastApiCall);
+          if (secondsToAdd > 0) {
+            incrementMutation.mutate(secondsToAdd);
+            lastApiCallTimeRef.current = now;
+          }
+        }
+
+        // 🔥 NEW: Check for auto-restart condition (30 seconds left and not all done)
+        if (
+          remaining <= AUTO_RESTART_SECONDS &&
+          remaining > 0 &&
+          !isAutoRestarting
+        ) {
+          const allSegmentsDone =
+            filteredSegments.length > 0 &&
+            submittedSegments.length === filteredSegments.length;
+
+          if (!allSegmentsDone && !restartTimeoutRef.current) {
+            console.log(
+              "⏰ 30 seconds left! Starting auto-restart countdown...",
+            );
+            setIsAutoRestarting(true);
+
+            // Countdown display
+            let countdown = 30;
+            const countdownInterval = setInterval(() => {
+              countdown -= 1;
+              setRestartCountdown(countdown);
+              if (countdown <= 0) {
+                clearInterval(countdownInterval);
+              }
+            }, 1000);
+
+            // Perform restart after 30 seconds
+            restartTimeoutRef.current = setTimeout(() => {
+              performAutoRestart();
+              clearInterval(countdownInterval);
+            }, 30000);
+          }
+        }
+
+        if (remaining <= 0) {
+          setTimeExpired(true);
+          handleTimeExpired();
+          return;
+        }
+
+        if (timerActive && !timeExpired && !isAutoRestarting) {
+          animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
+        }
+      };
+
+      animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
+    },
+    [
+      incrementMutation,
+      timerActive,
+      timeExpired,
+      handleTimeExpired,
+      formatTime,
+      filteredSegments,
+      submittedSegments,
+      isAutoRestarting,
+      performAutoRestart,
+    ],
+  );
+
+  const filterSegments = useCallback((segmentsArray) => {
+    return segmentsArray.filter((segment) => !segment.isDone);
+  }, []);
+
+  const submitSegmentAndShowResponse = useCallback(
     async (segmentId, audioBlob) => {
-      if (!segmentId || !audioBlob || !examAttemptId || !currentSegment) return;
+      if (!segmentId || !audioBlob || !examAttemptId) {
+        console.error("Missing required data for API call");
+        return null;
+      }
 
       try {
-        // Create FormData
+        setIsEvaluating(true);
+        const segment = filteredSegments.find((s) => s.id === segmentId);
+
+        if (!segment) {
+          console.error("Segment not found:", segmentId);
+          return null;
+        }
+
         const formData = new FormData();
         formData.append("dialogueId", dialogueId);
         formData.append(
           "language",
-          examData?.dialogue?.Language?.name || languageCode || "English",
+          examData?.dialogue?.Language?.name || "English",
         );
         formData.append("segmentId", segmentId);
-        formData.append("audioTranscript", currentSegment.textContent);
+        formData.append("audioTranscript", segment?.textContent || "");
         formData.append("examAttemptId", examAttemptId);
-        formData.append("audioUrl", currentSegment.audioUrl || "");
-        formData.append(
-          "suggestedAudioUrl",
-          currentSegment.suggestedAudioUrl || "",
-        );
+        formData.append("audioUrl", segment?.audioUrl || "");
+        formData.append("suggestedAudioUrl", segment?.suggestedAudioUrl || "");
         formData.append("userId", userId);
         formData.append("attemptCount", attemptsCount[segmentId] || 0);
-
-        // Append audio file
         formData.append("userAudio", audioBlob, "recording.webm");
 
-        // Submit segment and return response
         const response = await submitSegment(formData);
+        setAiResponse(response);
+        setShowAiPopup(true);
         return response;
       } catch (error) {
         console.error("Failed to submit segment:", error);
+        alert("Submission failed. Please try again.");
         throw error;
+      } finally {
+        setIsEvaluating(false);
       }
     },
     [
       dialogueId,
       examData,
-      languageCode,
       examAttemptId,
       userId,
-      currentSegment,
+      filteredSegments,
       attemptsCount,
     ],
   );
 
-  // 🔥 NEW: Update daily review count after successful submission
-  const updateDailyReviewCount = () => {
-    if (loggedInUser && examType === "rapid_review" && !hasActiveSubscription) {
-      const today = new Date().toDateString();
-      const storedData = localStorage.getItem(
-        `dailyReviews_${loggedInUser.id}`,
-      );
+  const playOriginalAudioAndAutoRecord = useCallback(() => {
+    if (!currentSegment?.audioUrl || timeExpired || isAutoRestarting) return;
 
-      let newCount = 1;
-      if (storedData) {
-        const { date, count } = JSON.parse(storedData);
-        if (date === today) {
-          newCount = count + 1;
-        }
+    setRecordingStatus("playing");
+    setBlinkText("Playing Source File");
+    setShowFinishButton(true);
+    setPlaybackProgress(0);
+
+    if (hiddenAudioRef.current) {
+      hiddenAudioRef.current.pause();
+      hiddenAudioRef.current = null;
+    }
+
+    hiddenAudioRef.current = new Audio(currentSegment.audioUrl);
+
+    hiddenAudioRef.current.addEventListener("loadedmetadata", () => {
+      setAudioDuration(hiddenAudioRef.current.duration);
+    });
+
+    const updateProgress = () => {
+      if (hiddenAudioRef.current && !hiddenAudioRef.current.ended) {
+        const progress =
+          (hiddenAudioRef.current.currentTime /
+            hiddenAudioRef.current.duration) *
+          100;
+        setPlaybackProgress(progress);
       }
+    };
+
+    let animationFrameId;
+    const smoothUpdate = () => {
+      updateProgress();
+      if (
+        hiddenAudioRef.current &&
+        !hiddenAudioRef.current.ended &&
+        !hiddenAudioRef.current.paused
+      ) {
+        animationFrameId = requestAnimationFrame(smoothUpdate);
+      }
+    };
+
+    hiddenAudioRef.current
+      .play()
+      .then(() => {
+        animationFrameId = requestAnimationFrame(smoothUpdate);
+        hiddenAudioRef.current.onended = () => {
+          cancelAnimationFrame(animationFrameId);
+          setRecordingStatus("recording");
+          setBlinkText("REC");
+          setPlaybackProgress(100);
+          startRecording();
+        };
+        hiddenAudioRef.current.onerror = () => {
+          cancelAnimationFrame(animationFrameId);
+          setRecordingStatus("idle");
+          setBlinkText("");
+          setShowFinishButton(false);
+          setPlaybackProgress(0);
+          alert("Failed to play audio.");
+        };
+      })
+      .catch((error) => {
+        console.error("Audio play error:", error);
+        setRecordingStatus("idle");
+        setBlinkText("");
+        setShowFinishButton(false);
+      });
+  }, [currentSegment, timeExpired, isAutoRestarting]);
+
+  const handleRecordNewAttempt = useCallback(() => {
+    if (!currentSegment) return;
+    setTempAudioBlob(null);
+    setShowRecordingCompleted(false);
+    setShowRecordingChoiceModal(false);
+    setAttemptsCount((prev) => ({
+      ...prev,
+      [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
+    }));
+    playOriginalAudioAndAutoRecord();
+  }, [currentSegment, playOriginalAudioAndAutoRecord]);
+
+  const handleSubmitExistingRecording = useCallback(async () => {
+    if (!currentSegment) {
+      alert("No segment selected");
+      return;
+    }
+
+    const audioToSubmit = tempAudioBlob || recordedAudios[currentSegment.id];
+    if (!audioToSubmit) {
+      alert("No recording available");
+      return;
+    }
+
+    setShowRecordingChoiceModal(false);
+    setShowRecordingCompleted(false);
+
+    if (tempAudioBlob) {
+      setAttemptsCount((prev) => ({
+        ...prev,
+        [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
+      }));
+    }
+
+    await submitSegmentAndShowResponse(currentSegment.id, audioToSubmit);
+    setTempAudioBlob(null);
+  }, [
+    currentSegment,
+    tempAudioBlob,
+    recordedAudios,
+    submitSegmentAndShowResponse,
+  ]);
+
+  const startAudioAndRecord = useCallback(() => {
+    if (!currentSegment || timeExpired || isAutoRestarting) return;
+    const hasRecording =
+      tempAudioBlob !== null || recordedAudios[currentSegment.id] !== null;
+    if (hasRecording && !showRecordingCompleted) {
+      setShowRecordingChoiceModal(true);
+      return;
+    }
+    playOriginalAudioAndAutoRecord();
+  }, [
+    currentSegment,
+    timeExpired,
+    isAutoRestarting,
+    tempAudioBlob,
+    recordedAudios,
+    showRecordingCompleted,
+    playOriginalAudioAndAutoRecord,
+  ]);
+
+  const initializeAudioAnalyzer = useCallback((stream) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (
+        window.AudioContext || window.webkitAudioContext
+      )();
+    }
+    const audioContext = audioContextRef.current;
+    const source = audioContext.createMediaStreamSource(stream);
+    analyserRef.current = audioContext.createAnalyser();
+    analyserRef.current.fftSize = 256;
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    dataArrayRef.current = new Uint8Array(bufferLength);
+    source.connect(analyserRef.current);
+    updateWaveHeights();
+  }, []);
+
+  const updateWaveHeights = useCallback(() => {
+    if (!analyserRef.current || !isRecording) return;
+    analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+    const average =
+      dataArrayRef.current.reduce((a, b) => a + b) /
+      dataArrayRef.current.length;
+    const newHeights = Array.from({ length: 20 }, (_, i) => {
+      const index = Math.floor(i * (dataArrayRef.current.length / 20));
+      const height = (dataArrayRef.current[index] || average) / 2.55;
+      return Math.min(100, Math.max(10, height));
+    });
+    setWaveHeights(newHeights);
+    animationFrameRef.current = requestAnimationFrame(updateWaveHeights);
+  }, [isRecording]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      const recorder = new MediaRecorder(audioStream, {
+        mimeType: "audio/webm;codecs=opus",
+      });
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        setIsRecording(false);
+        setRecordingStatus("idle");
+        setBlinkText("");
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+
+        if (currentSegment) {
+          setTempAudioBlob(audioBlob);
+          setRecordedAudios((prev) => ({
+            ...prev,
+            [currentSegment.id]: audioBlob,
+          }));
+          setSegmentsStatus((prev) => ({
+            ...prev,
+            [currentSegment.id]: "answered",
+          }));
+          setShowRecordingCompleted(true);
+          setShowFinishButton(false);
+        }
+
+        audioStream.getTracks().forEach((track) => track.stop());
+        if (animationFrameRef.current)
+          cancelAnimationFrame(animationFrameRef.current);
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      initializeAudioAnalyzer(audioStream);
+    } catch (error) {
+      console.error("Recording error:", error);
+      setRecordingStatus("idle");
+      setBlinkText("");
+      setShowFinishButton(false);
+      alert("Microphone access denied.");
+    }
+  }, [currentSegment, initializeAudioAnalyzer]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+    }
+  }, [mediaRecorder, isRecording]);
+
+  const handleFinishAttempt = useCallback(() => {
+    if (!currentSegment || timeExpired || isAutoRestarting) return;
+    if (isRecording) stopRecording();
+    setShowFinishButton(false);
+    setRecordingStatus("idle");
+    setBlinkText("");
+  }, [
+    currentSegment,
+    timeExpired,
+    isAutoRestarting,
+    isRecording,
+    stopRecording,
+  ]);
+
+  const shouldDisableNavigation =
+    recordingStatus === "playing" ||
+    recordingStatus === "recording" ||
+    isEvaluating ||
+    timeExpired ||
+    isAutoRestarting ||
+    !submittedSegments.includes(currentSegment?.id);
+
+  const isNextEnabled =
+    currentSegment &&
+    submittedSegments.includes(currentSegment.id) &&
+    !shouldDisableNavigation;
+
+  const handleNextClick = useCallback(() => {
+    if (timeExpired || !isNextEnabled || isAutoRestarting) return;
+    if (currentSegmentIndex < filteredSegments.length - 1) {
+      setCurrentSegmentIndex((prev) => prev + 1);
+      setRecordingStatus("idle");
+      setBlinkText("");
+      setShowFinishButton(false);
+      setShowRecordingCompleted(false);
+      setTempAudioBlob(null);
+      setPlaybackProgress(0);
+      if (hiddenAudioRef.current) {
+        hiddenAudioRef.current.pause();
+        hiddenAudioRef.current = null;
+      }
+    }
+  }, [
+    timeExpired,
+    isNextEnabled,
+    isAutoRestarting,
+    currentSegmentIndex,
+    filteredSegments.length,
+  ]);
+
+  const handlePreviousClick = useCallback(() => {
+    if (timeExpired || isAutoRestarting) return;
+    const previousSegment = filteredSegments[currentSegmentIndex - 1];
+    if (previousSegment && submittedSegments.includes(previousSegment.id)) {
+      setCurrentSegmentIndex((prev) => prev - 1);
+      setRecordingStatus("idle");
+      setBlinkText("");
+      setShowFinishButton(false);
+      setShowRecordingCompleted(false);
+      setTempAudioBlob(null);
+      setPlaybackProgress(0);
+      if (hiddenAudioRef.current) {
+        hiddenAudioRef.current.pause();
+        hiddenAudioRef.current = null;
+      }
+    }
+  }, [
+    timeExpired,
+    isAutoRestarting,
+    currentSegmentIndex,
+    filteredSegments,
+    submittedSegments,
+  ]);
+
+  const handleFinishClick = useCallback(() => {
+    if (timeExpired || isAutoRestarting) return;
+    if (currentSegment && !submittedSegments.includes(currentSegment.id)) {
+      alert("Please complete the current segment before finishing.");
+      return;
+    }
+    alert("✅ Exam Completed Successfully!");
+    setTimeout(() => navigate("/user"), 1500);
+  }, [
+    currentSegment,
+    timeExpired,
+    isAutoRestarting,
+    submittedSegments,
+    navigate,
+  ]);
+
+  const handleAiPopupContinue = useCallback(() => {
+    if (currentSegment) {
+      setSubmittedSegments((prev) => [...prev, currentSegment.id]);
+    }
+    setShowAiPopup(false);
+    setAiResponse(null);
+    if (currentSegmentIndex === filteredSegments.length - 1) {
+      setTimeout(() => {
+        alert("✅ Exam Completed Successfully!");
+        navigate("/user");
+      }, 500);
+    }
+  }, [currentSegment, currentSegmentIndex, filteredSegments.length, navigate]);
+
+  const handleRepeatConfirm = useCallback(() => {
+    setShowRepeatConfirm(false);
+    playOriginalAudioAndAutoRecord();
+  }, [playOriginalAudioAndAutoRecord]);
+
+  useEffect(() => {
+    if (
+      isTimeDataSuccess &&
+      !timerStartedRef.current &&
+      examData?.attempt?.id
+    ) {
+      timerStartedRef.current = true;
+      startSmoothTimer(initialTimeData);
+    }
+  }, [
+    isTimeDataSuccess,
+    initialTimeData,
+    examData?.attempt?.id,
+    startSmoothTimer,
+  ]);
+
+  useEffect(() => {
+    timerStartedRef.current = false;
+  }, [examData?.attempt?.id]);
+
+  useEffect(() => {
+    const heights = Array.from({ length: 20 }, () => Math.random() * 100);
+    setWaveHeights(heights);
+  }, [currentSegmentIndex]);
+
+  // Cleanup restart timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const initializeExam = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      let examDataPayload = {
+        examType: "complete_dialogue",
+        dialogueId: parseInt(dialogueId),
+        userId,
+        new: tryAgain === "true" || false,
+      };
+
+      let response = await startExamAttempt(examDataPayload);
+
+      // Check if all segments completed
+      const allSegmentsDone =
+        response.segments?.length > 0 &&
+        response.segments.every((segment) => segment.isDone === true);
+
+      if (allSegmentsDone) {
+        examDataPayload = { ...examDataPayload, new: true };
+        response = await startExamAttempt(examDataPayload);
+      }
+
+      const notDoneSegments = filterSegments(response.segments || []);
+
+      setExamData(response);
+      setSegments(response.segments || []);
+      setFilteredSegments(notDoneSegments);
+      setExamAttemptId(response.attempt.id);
+
+      const initialRecordings = {};
+      const initialAttempts = {};
+      const initialStatus = {};
+      notDoneSegments.forEach((segment) => {
+        initialRecordings[segment.id] = null;
+        initialAttempts[segment.id] = 0;
+        initialStatus[segment.id] = "not_answered";
+      });
+
+      setRecordedAudios(initialRecordings);
+      setAttemptsCount(initialAttempts);
+      setSegmentsStatus(initialStatus);
+      setIsLastSegment(notDoneSegments.length === 1);
 
       localStorage.setItem(
-        `dailyReviews_${loggedInUser.id}`,
-        JSON.stringify({
-          date: today,
-          count: newCount,
-        }),
+        "examData",
+        JSON.stringify({ ...response, filteredSegments: notDoneSegments }),
       );
 
-      setDailyReviewsUsed(newCount);
-
-      if (newCount >= 5) {
-        setIsReviewAllowed(false);
-      }
+      isInitializedRef.current = true;
+    } catch (error) {
+      console.error("Failed to initialize exam:", error);
+      alert("Failed to start exam. Please try again.");
+      navigate("/user/mock-test");
+    } finally {
+      setIsLoading(false);
+      initializationInProgressRef.current = false;
     }
-  };
+  }, [dialogueId, userId, tryAgain, navigate, filterSegments]);
 
-  // 🔥 NEW: Handle modal close and move to next segment
-  const handleModalClose = () => {
-    close();
-    setSegmentResult(null);
-
-    // If not last segment, move to next
-    if (!isLastSegment) {
-      setCurrentSegmentIndex((prev) => prev + 1);
-    } else {
-      // If last segment, redirect to dialogues
-      localStorage.removeItem("examData");
-      navigate("/user/rapid-review");
-    }
-  };
-
-  // 🔥 UPDATED: Handle NEXT button click (for all segments except last)
-  const handleNextClick = async () => {
-    if (!currentSegment || !currentRecording) {
-      alert("Please record your response first.");
+  useEffect(() => {
+    if (!dialogueId || !userId) {
+      navigate("/user/mock-test");
       return;
     }
+    if (isInitializedRef.current || initializationInProgressRef.current) return;
 
-    // Show loading for segment submission
-    setIsSubmittingSegment(true);
+    initializationInProgressRef.current = true;
+    initializeExam();
 
-    try {
-      // Submit current segment and get response
-      const response = await submitCurrentSegment(
-        currentSegment.id,
-        currentRecording,
-      );
-
-      // Save segment result and show modal
-      if (response && response.data) {
-        setSegmentResult(response.data);
-
-        // Update daily review count for rapid review
-        if (examType === "rapid_review" && !hasActiveSubscription) {
-          updateDailyReviewCount();
-        }
-
-        open();
-      } else {
-        alert("Failed to get segment result. Please try again.");
+    return () => {
+      if (animationFrameRefTimer.current) {
+        cancelAnimationFrame(animationFrameRefTimer.current);
       }
-    } catch (error) {
-      console.error("Failed to submit segment:", error);
-      alert("Failed to submit segment. Please try again.");
-    } finally {
-      setIsSubmittingSegment(false);
-    }
-  };
-
-  // 🔥 UPDATED: Handle FINISH button click (for last segment only)
-  const handleFinishClick = async () => {
-    if (!currentSegment || !currentRecording) {
-      alert("Please record your response first.");
-      return;
-    }
-
-    // Show loading for segment submission
-    setIsSubmittingSegment(true);
-
-    try {
-      // Submit last segment and get response
-      const response = await submitCurrentSegment(
-        currentSegment.id,
-        currentRecording,
-      );
-
-      // Save segment result and show modal
-      if (response && response.data) {
-        setSegmentResult(response.data);
-
-        // Update daily review count for rapid review
-        if (examType === "rapid_review" && !hasActiveSubscription) {
-          updateDailyReviewCount();
-        }
-
-        open();
-      } else {
-        alert("Failed to get segment result. Please try again.");
+      if (audioContextRef.current) audioContextRef.current.close();
+      if (hiddenAudioRef.current) {
+        hiddenAudioRef.current.pause();
+        hiddenAudioRef.current = null;
       }
-    } catch (error) {
-      console.error("Failed to submit segment:", error);
-      alert("Failed to submit. Please try again.");
-    } finally {
-      setIsSubmittingSegment(false);
-    }
-  };
+    };
+  }, [dialogueId, userId, navigate, initializeExam]);
 
-  // Handle previous button click
-  const handlePreviousClick = () => {
-    if (currentSegmentIndex > 0) {
-      setCurrentSegmentIndex((prev) => prev - 1);
+  useEffect(() => {
+    if (filteredSegments.length > 0) {
+      setIsLastSegment(currentSegmentIndex === filteredSegments.length - 1);
     }
-  };
+  }, [currentSegmentIndex, filteredSegments]);
 
-  // Load from localStorage on refresh
   useEffect(() => {
     const savedExamData = localStorage.getItem("examData");
     if (savedExamData) {
       const parsedData = JSON.parse(savedExamData);
       setExamData(parsedData);
       setSegments(parsedData.segments || []);
+      setFilteredSegments(
+        parsedData.filteredSegments ||
+          parsedData.segments?.filter((s) => !s.isDone) ||
+          [],
+      );
       setExamAttemptId(parsedData.attempt.id);
 
       const initialRecordings = {};
       const initialAttempts = {};
-      parsedData.segments?.forEach((segment) => {
+      const initialStatus = {};
+      const filteredSegmentsData =
+        parsedData.filteredSegments ||
+        parsedData.segments?.filter((s) => !s.isDone) ||
+        [];
+
+      filteredSegmentsData.forEach((segment) => {
         initialRecordings[segment.id] = null;
         initialAttempts[segment.id] = 0;
+        initialStatus[segment.id] = "not_answered";
       });
 
       setRecordedAudios(initialRecordings);
       setAttemptsCount(initialAttempts);
-
-      // ✅ Mark as initialized when loading from localStorage
+      setSegmentsStatus(initialStatus);
       isInitializedRef.current = true;
     }
   }, []);
 
-  // Wave animation styles
-  const waveStyle = {
-    animation: isAudioPlaying
-      ? "waveAnimation 1s ease-in-out infinite alternate"
-      : "none",
-  };
-
-  // Add CSS for wave animation
   const waveAnimationCSS = `
     @keyframes waveAnimation {
       0% { height: 30%; }
       100% { height: 100%; }
     }
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
   `;
-
-  if (!userId) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <p className="text-gray-600 text-center">Please login to continue</p>
-        <button
-          onClick={() => navigate("/login")}
-          className="mt-4 px-6 py-2 cursor-pointer bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
-        >
-          Go to Login
-        </button>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <div className="flex justify-center">
-          <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
-        </div>
-        <p className="text-gray-600 text-center">Loading exam...</p>
+        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-4" />
+        <p className="text-gray-600">Loading exam...</p>
       </div>
     );
   }
 
-  if (!examData || segments.length === 0) {
+  if (!examData || filteredSegments.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <p className="text-gray-600 text-center">No exam data found</p>
+        <p className="text-gray-600 text-center">No segments available</p>
         <button
-          onClick={() => navigate("/user/rapid-review")}
-          className="mt-4 px-6 py-2 cursor-pointer bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+          onClick={() => navigate("/user/mock-test")}
+          className="mt-4 px-6 py-2 bg-emerald-500 text-white rounded-lg"
         >
           Go Back
         </button>
@@ -656,683 +941,349 @@ const PracticeDialogue = () => {
 
   return (
     <>
-      {/* Add wave animation CSS */}
       <style>{waveAnimationCSS}</style>
 
-      {/* 🔥 NEW: Daily Limit Warning Banner */}
-      {examType === "rapid_review" && !hasActiveSubscription && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-amber-800">
-                    Daily Rapid Reviews: {dailyReviewsUsed}/5 used
-                  </p>
-                  <p className="text-xs text-amber-600">
-                    {5 - dailyReviewsUsed} reviews remaining today
-                  </p>
-                </div>
-              </div>
-              {dailyReviewsUsed >= 5 && (
-                <button
-                  onClick={() => navigate("/subscriptions")}
-                  className="px-4 py-1.5 cursor-pointer bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:opacity-90"
-                >
-                  Upgrade for Unlimited
-                </button>
-              )}
-            </div>
+      {/* 🔥 NEW: Auto Restart Loading Modal */}
+      {isAutoRestarting && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md text-center">
+            <Loader2 className="w-16 h-16 text-red-600 animate-spin mx-auto mb-6" />
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              Time Almost Up!
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Restarting exam in{" "}
+              <span className="font-bold text-red-600 text-2xl">
+                {restartCountdown}
+              </span>{" "}
+              seconds...
+            </p>
+            <p className="text-sm text-gray-500">
+              Please wait while we prepare a new attempt for you.
+            </p>
           </div>
         </div>
       )}
 
-      {/* 🔥 NEW: Loading Overlay for Segment Submission */}
-      {isSubmittingSegment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
-            <div className="flex flex-col items-center">
-              <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500 animate-spin mb-4" />
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 text-center">
-                Submitting Segment {currentSegmentIndex + 1}
-              </h3>
-              <p className="text-gray-600 text-center text-sm sm:text-base">
-                Processing your response...
-                <br />
-                <span className="text-xs sm:text-sm">Please wait a moment</span>
-              </p>
-            </div>
+      {/* AI Response Modal - External Component */}
+      <AiResponseModal
+        open={showAiPopup}
+        data={aiResponse}
+        onContinue={handleAiPopupContinue}
+      />
+
+      {/* Evaluation Loading Modal */}
+      {isEvaluating && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md text-center">
+            <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              AI Evaluation in Progress
+            </h3>
+            <p className="text-gray-600">Analyzing your pronunciation...</p>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col  w-full ">
-        {/* Top Header */}
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 border-b border-gray-200">
-          <div className="flex items-center mb-2 sm:mb-0">
-            <div className="ml-2 leading-tight">
-              <div className="text-lg sm:text-xl font-bold text-[#006b5e] uppercase tracking-tighter">
-                PREP SMART
-              </div>
-              <div className="text-xs sm:text-sm text-[#006b5e] font-medium tracking-tighter">
-                CCL Platform
-              </div>
-            </div>
+      <Modal
+        opened={showRepeatConfirm}
+        onClose={() => setShowRepeatConfirm(false)}
+        centered
+        size="sm"
+      >
+        <div className="space-y-12 text-center p-6">
+          <div className="bg-gray-100 h-32 w-32 rounded-full mx-auto flex items-center justify-center">
+            <FaTriangleExclamation size={56} className="text-orange-300" />
           </div>
-          <div className="flex items-center text-xs sm:text-[13px] text-gray-600">
-            <div className="bg-[#006b5e] p-1 rounded-full text-white mr-1">
-              <User size={12} className="sm:size-[14px]" />
+          <p className="text-gray-500 text-2xl">Repeat the segment?</p>
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => setShowRepeatConfirm(false)}
+              className="px-8 py-2 rounded-full hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              className="bg-[#006b5e] text-white px-8 py-2 rounded-full"
+              onClick={handleRepeatConfirm}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        opened={showRecordingChoiceModal}
+        onClose={() => setShowRecordingChoiceModal(false)}
+        centered
+        size="sm"
+        withCloseButton={false}
+      >
+        <div className="text-center p-6">
+          <div className="bg-blue-100 w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <Mic className="w-10 h-10 text-blue-600" />
+          </div>
+          <h3 className="text-xl font-bold mb-2">
+            You already have a recording
+          </h3>
+          <div className="space-y-3 mt-6">
+            <button
+              onClick={handleRecordNewAttempt}
+              className="w-full py-3 bg-blue-600 text-white rounded-lg"
+            >
+              Record New Attempt
+            </button>
+            <button
+              onClick={handleSubmitExistingRecording}
+              className="w-full py-3 bg-green-600 text-white rounded-lg"
+            >
+              Submit Existing
+            </button>
+            <button
+              onClick={() => setShowRecordingChoiceModal(false)}
+              className="w-full py-3 bg-gray-200 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <div className="flex flex-col w-full h-full overflow-hidden">
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-2 border-b-3 border-[#006b5e]">
+          <div className="text-lg sm:text-xl font-bold text-[#006b5e]">
+            Rapid Review
+          </div>
+          <div className="flex items-center text-xs text-gray-600">
+            <div className="bg-[#006b5e] p-1 rounded-full text-white mr-2">
+              <User size={12} />
             </div>
-            <span className="truncate max-w-[150px] sm:max-w-none">
-              {loggedInUser?.email}
+            <span className="truncate max-w-[150px]">
+              {loggedInUser?.email || "User"}
             </span>
           </div>
         </header>
 
-        {/* Breadcrumb & Progress Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-b border-gray-100 text-[10px] sm:text-[11px] text-gray-500">
-          <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-0 flex-wrap">
-            <span
-              className="cursor-pointer"
-              onClick={() => navigate("/user/rapid-review")}
+        <div className="flex flex-col text-sm sm:flex-row items-start sm:items-center justify-between px-4 py-3 border-b border-gray-300">
+          <div className="font-semibold">CCL Practice - {languageName}</div>
+          <div className="flex items-center gap-4">
+            <div
+              className={`text-sm font-semibold ${remainingTime < 60 ? "text-red-600" : "text-gray-700"}`}
             >
-              🏠
-            </span>
-            <span className="hidden xs:inline">
-              CCL Practice dialogue -{" "}
-              {examData?.dialogue?.Language?.name || "Language"}
-            </span>
-            <span className="xs:hidden">
-              Dialogue - {examData?.dialogue?.Language?.name || "Language"}
-            </span>
-            <span>/</span>
-            <span className="text-gray-400">Dialogue</span>
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-nowrap">
-              {currentSegmentIndex + 1}/{segments.length}
-            </span>
-            <div className="w-24 sm:w-32 h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200 flex-grow sm:flex-grow-0">
-              <div
-                className="h-full bg-[#006b5e] opacity-30 transition-all duration-300"
-                style={{
-                  width: `${
-                    ((currentSegmentIndex + 1) / segments.length) * 100
-                  }%`,
-                }}
-              ></div>
+              ⏱️ Time: {displayTime}
+            </div>
+            <div className="flex items-center gap-2">
+              <span>
+                {currentSegmentIndex + 1}/{filteredSegments.length}
+              </span>
+              <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#006b5e] opacity-30"
+                  style={{
+                    width: `${((currentSegmentIndex + 1) / filteredSegments.length) * 100}%`,
+                  }}
+                ></div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <main className="grow px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-8">
-          <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:gap-12">
-            {/* Left Instructions */}
-            <div className="flex-1 space-y-3 sm:space-y-4 text-xs sm:text-[13.5px] text-[#444] leading-relaxed">
-              <h2 className="text-base sm:text-[18px] font-bold text-[#3db39e] uppercase mb-4 sm:mb-6 lg:mb-8 tracking-wide text-center sm:text-left">
-                {examData?.dialogue?.title || "Dialogue"}
-              </h2>
-              <p>
-                This segment is intended to{" "}
-                <strong>test your audio and visual equipment</strong> prior to
-                taking the full CCL test.
-              </p>
-              <p>
-                Click on <strong>Play Audio</strong> below the audio, to hear
-                the segment and test your microphone and camera.
-              </p>
-              <p>
-                You should be able to see yourself, and notice soundwaves when
-                audio will play.
-              </p>
-              <p>
-                Click on <strong>Next </strong>, to upload your recorded audio
-                and move to the next segment.
-              </p>
-              <p>
-                You can also play and listen to the{" "}
-                <strong>Suggested Audio</strong> for this segment, to compare
-                with your recording.
-              </p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-3 border-b border-gray-300">
+          <span className="font-semibold">
+            Segment - {currentSegmentIndex + 1}
+          </span>
+        </div>
 
-              <div className="mt-6 sm:mt-8 space-y-2 sm:space-y-3">
-                <p className="font-bold">Repeat:</p>
-                <p>
-                  You are able to repeat any segment before you begin speaking (
-                  <span className="font-bold underline">
-                    one repeat per dialogue without penalty
-                  </span>
-                  ) to do this:
-                </p>
-                <ul className="list-disc pl-4 sm:pl-5">
-                  <li>
-                    Click on the <strong>Retry</strong> button for again
-                    recording you voice
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mt-8 sm:mt-10 flex items-center gap-2 text-xs sm:text-[13px] flex-wrap">
-                <span>
-                  Now you can start your test by clicking on the{" "}
-                  <strong>Play Audio </strong> button.
-                </span>
-              </div>
-
-              {/* 🔥 UPDATED: Current Segment Text with Vocabulary Limitation */}
-              {currentSegment?.textContent && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 ">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-gray-700">
-                      Current Segment:
-                    </h3>
-                    {isTextLimited && (
-                      <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">
-                        Limited Preview
-                      </span>
-                    )}
-                  </div>
-
-                  {isTextLimited ? (
-                    <div className="relative">
-                      {/* Visible first 10 words */}
-                      <p className="text-gray-800 mb-2">
-                        {limitedTextContent.visible}
-                        {limitedTextContent.totalWords > 10 && (
-                          <span className="text-gray-400"> ...</span>
-                        )}
-                      </p>
-
-                      {/* Blurred remaining words */}
-                      {limitedTextContent.hidden && (
-                        <div className="relative">
-                          <div className="filter blur-sm opacity-60">
-                            <p className="text-gray-800">
-                              ... {limitedTextContent.hidden}
-                            </p>
-                          </div>
-
-                          {/* Upgrade overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-white/80 to-transparent flex flex-col items-center justify-end p-4 rounded-lg">
-                            <Lock className="w-6 h-6 text-gray-400 mb-2" />
-                            <p className="text-sm text-gray-600 text-center mb-2">
-                              Upgrade to premium to view full vocabulary
-                            </p>
-                            <button
-                              onClick={() => navigate("/subscriptions")}
-                              className="px-4 py-1.5 cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-medium rounded-lg hover:opacity-90"
-                            >
-                              Upgrade Now
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="text-xs text-gray-500 mt-2">
-                        Showing 10 of {limitedTextContent.totalWords} words
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-gray-800">
-                      {currentSegment.textContent}
-                    </p>
-                  )}
+        <main className="grow px-4 sm:px-10 py-8 flex-1 overflow-y-scroll">
+          <div className="flex justify-center">
+            <div className="w-full max-w-3xl">
+              {remainingTime < 60 && !isLastSegment && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-red-600 font-semibold flex items-center gap-2">
+                    <Clock size={16} />
+                    Warning: Only {displayTime} remaining!
+                  </p>
                 </div>
               )}
-            </div>
 
-            {/* Right Interface (Video & Audio) */}
-            <div className="flex-1">
-              {/* Camera Feed */}
-              <div className="w-full h-72 rounded-lg   shadow-sm mb-4 sm:mb-6 overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                  style={{ transform: "scaleX(-1)" }}
-                />
-              </div>
-
-              {/* Audio Section */}
-              <div className="space-y-4 sm:space-y-6">
-                {/* Hidden audio element for original audio */}
-                {currentSegment?.audioUrl && (
-                  <audio
-                    ref={originalAudioRef}
-                    src={currentSegment.audioUrl}
-                    style={{ display: "none" }}
-                  />
+              <div className="space-y-8">
+                {isLastSegment && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-center">
+                    <h2 className="text-xl font-bold text-emerald-600">
+                      🎉 Last Segment!
+                    </h2>
+                  </div>
                 )}
 
-                {/* Original Audio - Wave visualization */}
-                {currentSegment?.audioUrl && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Original Audio:
-                    </p>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      {/* Audio Wave Visualization */}
-                      <div className="flex-1 w-full h-12 sm:h-16 bg-gray-100 rounded-lg border border-gray-300 p-3 sm:p-4">
-                        <div className="flex items-center justify-center h-full">
-                          <div className="flex items-end h-6 sm:h-8 gap-0.5 sm:gap-1">
-                            {waveHeights.map((height, index) => (
-                              <div
-                                key={index}
-                                className="w-0.5 sm:w-1 bg-emerald-500 rounded-full"
-                                style={{
-                                  height: `${height}%`,
-                                  ...(isAudioPlaying ? waveStyle : {}),
-                                }}
-                              />
-                            ))}
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  {currentSegment?.audioUrl && (
+                    <audio
+                      ref={originalAudioRef}
+                      src={currentSegment.audioUrl}
+                      style={{ display: "none" }}
+                    />
+                  )}
+                  <RapidReviewPlayAndRecordSection
+                    currentSegment={currentSegment}
+                    isRecording={isRecording}
+                    playbackProgress={playbackProgress}
+                    audioDuration={audioDuration}
+                    isPlaying={recordingStatus === "playing"}
+                  />
+
+                  <div className="space-y-6 mt-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="text-gray-700">
+                          <span className="font-medium">Attempts:</span>{" "}
+                          {currentAttempts}
+                        </div>
+
+                        {!showFinishButton &&
+                          !isRecording &&
+                          !showRecordingCompleted && (
+                            <button
+                              onClick={startAudioAndRecord}
+                              disabled={
+                                recordingStatus === "playing" ||
+                                isEvaluating ||
+                                timeExpired ||
+                                isAutoRestarting ||
+                                submittedSegments.includes(currentSegment?.id)
+                              }
+                              className={`px-6 py-3 rounded-full flex items-center gap-2 ${recordingStatus === "playing" || isEvaluating || timeExpired || isAutoRestarting || submittedSegments.includes(currentSegment?.id) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-[#006b5e] text-white hover:bg-[#005a4f]"}`}
+                            >
+                              <span className="font-medium text-lg">Start</span>
+                            </button>
+                          )}
+
+                        {showFinishButton && isRecording && (
+                          <button
+                            onClick={handleFinishAttempt}
+                            disabled={
+                              recordingStatus === "playing" ||
+                              timeExpired ||
+                              isAutoRestarting
+                            }
+                            className={`px-6 py-3 border-2 border-[#006b5e] text-[#006b5e] rounded-full ${recordingStatus === "playing" || timeExpired || isAutoRestarting ? "opacity-50 cursor-not-allowed" : "hover:bg-[#006b5e] hover:text-white"}`}
+                          >
+                            Finish Attempt
+                          </button>
+                        )}
+
+                        {showRecordingCompleted && tempAudioBlob && (
+                          <div className="flex gap-3">
+                            <button
+                              onClick={handleRecordNewAttempt}
+                              className="px-6 py-3 cursor-pointer bg-[#006b5e] text-white hover:bg-[#005a4f] text-white rounded-full flex items-center gap-2"
+                            >
+                              <Mic size={20} /> Start
+                            </button>
+                            <button
+                              onClick={handleSubmitExistingRecording}
+                              className="px-6 py-3 cursor-pointer bg-green-600 text-white rounded-full flex items-center gap-2"
+                            >
+                              <Upload size={20} /> Submit
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 animate-pulse">
+                        {blinkText && recordingStatus === "playing" && (
+                          <div className="text-center border border-slate-900 py-2 px-4 rounded-lg">
+                            <p className="text-sm text-slate-900 flex items-center gap-2">
+                              <Loader size={16} className="animate-spin" />
+                              {blinkText}
+                            </p>
+                          </div>
+                        )}
+                        {blinkText && recordingStatus === "recording" && (
+                          <div className="text-center border border-red-500 py-2 px-4 rounded-lg">
+                            <p className="text-sm font-medium text-red-600 flex items-center gap-2">
+                              <span className="h-3 w-3 rounded-full bg-red-500 inline-block"></span>
+                              {blinkText}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {submittedSegments.includes(currentSegment?.id) && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="w-6 h-6 text-green-600" />
+                          <div>
+                            <p className="font-semibold text-green-800">
+                              Segment Submitted!
+                            </p>
+                            <p className="text-green-600 text-sm">
+                              Click "Next" to continue
+                            </p>
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={playOriginalAudioAndAutoRecord}
-                        disabled={
-                          isRecording || currentRecording || isAudioPlaying
-                        }
-                        className={`px-3 sm:px-4 cursor-pointer py-2 rounded-lg flex items-center gap-1 sm:gap-2 justify-center w-full sm:w-auto ${
-                          isRecording || currentRecording || isAudioPlaying
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-emerald-500 text-white hover:bg-emerald-600"
-                        }`}
-                      >
-                        <Play size={14} className="sm:size-[16px]" />
-                        <span>Play Audio</span>
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
-
-                {/* Suggested Audio - With controls */}
-                {currentSegment?.suggestedAudioUrl && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Suggested Audio:
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <audio
-                        ref={suggestedAudioRef}
-                        src={currentSegment.suggestedAudioUrl}
-                        controls
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Status and Controls */}
-                <div className="space-y-4">
-                  {/* Attempts Count */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        Attempts: {currentAttempts}
-                      </span>
-                      {isRecording && (
-                        <div className="flex items-center gap-1 text-red-500">
-                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                          <span className="text-xs">Recording...</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Recording Controls */}
-                    <div className="flex flex-wrap gap-2 sm:gap-4">
-                      {/* Stop Recording Button (only when recording) */}
-                      {isRecording && (
-                        <button
-                          onClick={stopRecording}
-                          className="flex items-center cursor-pointer gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm w-full sm:w-auto justify-center"
-                        >
-                          <Square size={14} className="sm:size-[16px]" />
-                          Stop Recording
-                        </button>
-                      )}
-
-                      {/* Retry Button (after first recording) */}
-                      {showRetryButton && (
-                        <button
-                          onClick={handleRetry}
-                          className="flex items-center cursor-pointer gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-[#006b5e] hover:bg-[#005a4f] text-white rounded-lg text-sm w-full sm:w-auto justify-center"
-                        >
-                          <RefreshCw size={14} className="sm:size-[16px]" />
-                          Retry
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Next/Finish Button Info */}
-                  {currentRecording && !isRecording && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-xs sm:text-sm font-medium text-green-700">
-                        {isLastSegment ? (
-                          <>
-                            <CheckCircle
-                              size={14}
-                              className="inline mr-1 sm:size-[16px]"
-                            />
-                            Ready to finish! Click "Finish" to submit all
-                            responses and view results.
-                          </>
-                        ) : (
-                          <>
-                            ✓ Recording completed! Click "Next" to continue to
-                            the next segment.
-                          </>
-                        )}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
           </div>
         </main>
 
-        {/* Footer / Bottom Progress */}
         <footer className="w-full mt-auto">
-          {/* Segment Progress Dots */}
-          <div className="flex w-full h-1.5 gap-0.5 sm:gap-1">
-            {segments.map((_, i) => (
+          <div className="flex w-full h-1.5 gap-0.5">
+            {filteredSegments.map((segment, i) => (
               <div
                 key={i}
-                className={`grow border-r border-white last:border-0 ${
-                  i <= currentSegmentIndex ? "bg-[#3db39e]" : "bg-gray-200"
-                }`}
+                className={`grow border-r border-white last:border-0 ${submittedSegments.includes(segment.id) ? "bg-emerald-500" : i === currentSegmentIndex ? "bg-[#3db39e]" : "bg-gray-200"}`}
               ></div>
             ))}
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="flex justify-end items-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-100">
+          <div className="flex justify-between items-center p-4 border-t border-gray-100">
             <button
               onClick={handlePreviousClick}
-              disabled={currentSegmentIndex === 0 || isSubmittingSegment}
-              className={`flex cursor-pointer items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                currentSegmentIndex === 0 || isSubmittingSegment
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-700"
-              }`}
+              disabled={
+                currentSegmentIndex === 0 ||
+                shouldDisableNavigation ||
+                isEvaluating ||
+                !submittedSegments.includes(
+                  filteredSegments[currentSegmentIndex - 1]?.id,
+                )
+              }
+              className={`flex items-center gap-2 px-6 py-2 rounded-md ${currentSegmentIndex === 0 || shouldDisableNavigation ? "text-gray-400 cursor-not-allowed" : "text-[#006b5e] hover:bg-gray-100"}`}
             >
-              <ChevronLeft size={16} className="sm:size-[18px]" />
-              <span>Previous</span>
+              <ArrowLeft size={18} /> Previous
             </button>
 
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div>
               {isLastSegment ? (
-                // FINISH Button for last segment
                 <button
                   onClick={handleFinishClick}
-                  disabled={!currentRecording || isSubmittingSegment}
-                  className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                    !currentRecording || isSubmittingSegment
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                  disabled={
+                    shouldDisableNavigation ||
+                    isEvaluating ||
+                    timeExpired ||
+                    !submittedSegments.includes(currentSegment?.id)
+                  }
+                  className={`flex items-center gap-2 text-white px-6 py-3 rounded-full ${shouldDisableNavigation || !submittedSegments.includes(currentSegment?.id) ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"}`}
                 >
-                  <CheckCircle size={16} className="sm:size-[18px]" />
-                  <span>Finish</span>
+                  <Flag size={18} /> Finish
                 </button>
               ) : (
-                // NEXT Button for all other segments
                 <button
                   onClick={handleNextClick}
-                  disabled={!currentRecording || isSubmittingSegment}
-                  className={`flex items-center cursor-pointer gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                    !currentRecording || isSubmittingSegment
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-[#006b5e] hover:bg-[#005a4f]"
-                  }`}
+                  disabled={!isNextEnabled}
+                  className={`flex items-center gap-2 text-white px-6 py-3 rounded-full ${!isNextEnabled ? "bg-gray-400" : "bg-[#006b5e] hover:bg-[#005a4f]"}`}
                 >
-                  <span>Next</span>
-                  <ArrowRight size={16} className="sm:size-[18px]" />
+                  Next <ArrowRight size={18} />
                 </button>
               )}
             </div>
           </div>
         </footer>
-
-        {/* 🔥 UPDATED: Segment Result Modal */}
-        <Modal
-          opened={opened}
-          closeOnClickOutside={false}
-          onClose={handleModalClose}
-          title={`Segment ${currentSegmentIndex + 1} Results`}
-          size="lg"
-          fullScreen={window.innerWidth < 768}
-          radius={"lg"}
-          withCloseButton={false}
-          centered
-          overlayProps={{ blur: 3, opacity: 0.25 }}
-          styles={{
-            title: {
-              fontSize: window.innerWidth < 640 ? "1.25rem" : "1.5rem",
-              fontWeight: "bold",
-            },
-            body: { padding: window.innerWidth < 640 ? "16px" : "24px" },
-          }}
-        >
-          {segmentResult ? (
-            <div className="space-y-4 sm:space-y-6 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto pr-1 sm:pr-2">
-              {/* Daily Review Remaining Info */}
-              {examType === "rapid_review" && !hasActiveSubscription && (
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-lg border border-amber-200 mb-4">
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-800">
-                        Daily Reviews: {dailyReviewsUsed}/5 used today
-                      </p>
-                      <p className="text-xs text-amber-600">
-                        {5 - dailyReviewsUsed} rapid reviews remaining
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Segment Summary */}
-              <div className="bg-linear-to-r from-emerald-50 to-teal-50 p-4 sm:p-6 rounded-lg border border-emerald-200">
-                <h3 className="font-bold text-lg sm:text-xl text-emerald-800 mb-3 sm:mb-4">
-                  <CheckCircle
-                    size={20}
-                    className="inline mr-2 sm:size-[24px]"
-                  />
-                  Segment {currentSegmentIndex + 1} Results
-                </h3>
-
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-                  <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-                    <p className="text-xs sm:text-sm text-gray-600 mb-1">
-                      Final Score
-                    </p>
-                    <p className="text-xl sm:text-2xl font-bold text-emerald-600">
-                      {segmentResult.scores?.final_score ||
-                        segmentResult.segmentAttempt?.finalScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-                    <p className="text-xs sm:text-sm text-gray-600 mb-1">
-                      Accuracy
-                    </p>
-                    <p className="text-xl sm:text-2xl font-bold text-blue-600">
-                      {segmentResult.scores?.accuracy_score ||
-                        segmentResult.segmentAttempt?.accuracyScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-                    <p className="text-xs sm:text-sm text-gray-600 mb-1">
-                      Total Raw Score
-                    </p>
-                    <p className="text-xl sm:text-2xl font-bold text-gray-800">
-                      {segmentResult.scores?.total_raw_score ||
-                        segmentResult.segmentAttempt?.totalRawScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Detailed Scores */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
-                  <div className="bg-green-50 p-2 sm:p-3 rounded border border-green-200">
-                    <p className="text-[10px] sm:text-xs text-green-600 font-medium">
-                      Language Quality
-                    </p>
-                    <p className="font-semibold text-green-700 text-sm sm:text-base">
-                      {segmentResult.scores?.language_quality_score ||
-                        segmentResult.segmentAttempt?.languageQualityScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="bg-orange-50 p-2 sm:p-3 rounded border border-orange-200">
-                    <p className="text-[10px] sm:text-xs text-orange-600 font-medium">
-                      Fluency & Pronunciation
-                    </p>
-                    <p className="font-semibold text-orange-700 text-sm sm:text-base">
-                      {segmentResult.scores?.fluency_pronunciation_score ||
-                        segmentResult.segmentAttempt
-                          ?.fluencyPronunciationScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="bg-yellow-50 p-2 sm:p-3 rounded border border-yellow-200">
-                    <p className="text-[10px] sm:text-xs text-yellow-600 font-medium">
-                      Delivery & Coherence
-                    </p>
-                    <p className="font-semibold text-yellow-700 text-sm sm:text-base">
-                      {segmentResult.scores?.delivery_coherence_score ||
-                        segmentResult.segmentAttempt?.deliveryCoherenceScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="bg-red-50 p-2 sm:p-3 rounded border border-red-200">
-                    <p className="text-[10px] sm:text-xs text-red-600 font-medium">
-                      Cultural Context
-                    </p>
-                    <p className="font-semibold text-red-700 text-sm sm:text-base">
-                      {segmentResult.scores?.cultural_context_score ||
-                        segmentResult.segmentAttempt?.culturalControlScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="bg-purple-50 p-2 sm:p-3 rounded border border-purple-200">
-                    <p className="text-[10px] sm:text-xs text-purple-600 font-medium">
-                      Response Management
-                    </p>
-                    <p className="font-semibold text-purple-700 text-sm sm:text-base">
-                      {segmentResult.scores?.response_management_score ||
-                        segmentResult.segmentAttempt?.responseManagementScore ||
-                        "N/A"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Feedback */}
-                <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 mb-4">
-                  <h4 className="font-semibold text-gray-800 mb-2 text-sm sm:text-base">
-                    <MessageSquare
-                      size={14}
-                      className="inline mr-2 sm:size-[16px]"
-                    />
-                    Feedback
-                  </h4>
-                  <div className="text-gray-700 whitespace-pre-line bg-gray-50 p-3 sm:p-4 rounded border border-gray-300 text-xs sm:text-sm">
-                    {segmentResult.scores?.one_line_feedback ||
-                      segmentResult.segmentAttempt?.oneLineFeedback ||
-                      segmentResult.segmentAttempt?.feedback ||
-                      "No feedback available"}
-                  </div>
-                </div>
-
-                {/* Transcripts */}
-                {segmentResult.transcripts && (
-                  <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 mb-4">
-                    <h4 className="font-semibold text-gray-800 mb-2 text-sm sm:text-base">
-                      Transcripts
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs text-gray-600 mb-1 font-medium">
-                          Your Response:
-                        </p>
-                        <p className="text-gray-800 bg-gray-50 p-3 rounded border text-sm">
-                          {segmentResult.transcripts.studentTranscript ||
-                            segmentResult.segmentAttempt?.userTranscription ||
-                            "No transcription available"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600 mb-1 font-medium">
-                          Suggested Response:
-                        </p>
-                        <p className="text-gray-800 bg-gray-50 p-3 rounded border text-sm">
-                          {segmentResult.transcripts.suggestedTranscript ||
-                            "No suggested transcript available"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Audio Player */}
-                {(segmentResult.userAudioUrl ||
-                  segmentResult.segmentAttempt?.audioUrl) && (
-                  <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 mb-4">
-                    <h4 className="font-semibold text-gray-800 mb-2 text-sm sm:text-base">
-                      Your Recording
-                    </h4>
-                    <audio
-                      src={
-                        segmentResult.userAudioUrl ||
-                        segmentResult.segmentAttempt?.audioUrl
-                      }
-                      controls
-                      className="w-full"
-                    />
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200">
-                  <Button
-                    onClick={handleModalClose}
-                    color="teal"
-                    size={window.innerWidth < 640 ? "sm" : "md"}
-                    fullWidth={window.innerWidth < 640}
-                  >
-                    {isLastSegment
-                      ? "Complete Exam"
-                      : "Continue to Next Segment"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-6 sm:py-8">
-              <div className="flex justify-center">
-                <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
-              </div>
-              <p className="mt-2 text-gray-600">Loading results...</p>
-            </div>
-          )}
-        </Modal>
       </div>
     </>
   );

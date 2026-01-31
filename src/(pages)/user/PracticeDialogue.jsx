@@ -13,11 +13,10 @@ import {
   Loader,
   ArrowLeft,
   Flag,
-  Bookmark,
 } from "lucide-react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCircle, FaRegDotCircle } from "react-icons/fa";
-import { Modal, Button, Slider } from "@mantine/core";
+import { Modal, Button } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   startExamAttempt,
@@ -25,23 +24,24 @@ import {
   getExamResult,
 } from "../../api/exams";
 import { useAuth } from "../../context/AuthContext";
-import VerticalVolumeSlider from "../../components/VerticalVolumeSlider";
 import AudioWaveRecording from "../../components/PlayAndRecordSection";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 const TOTAL_EXAM_TIME = 20 * 60; // 20 minutes in seconds
 
 const PracticeDialogue = () => {
-  const [volume, setVolume] = useState(50);
   // State variables
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user: loggedInUser } = useAuth();
+  const [volume, setVolume] = useState(50);
 
   // Get URL parameters
   const dialogueId = searchParams.get("dialogueId");
   const examType = searchParams.get("examType") || "complete_dialogue";
   const languageCode = searchParams.get("languageCode");
   const languageName = searchParams.get("languageName");
+  const tryAgain = searchParams.get("new");
 
   // User ID from auth
   const userId = loggedInUser?.id;
@@ -63,45 +63,42 @@ const PracticeDialogue = () => {
   const [isSubmittingFinal, setIsSubmittingFinal] = useState(false);
   const [waveHeights, setWaveHeights] = useState([]);
 
-  // New states for updated requirements
+  // UI States
   const [showRepeatConfirm, setShowRepeatConfirm] = useState(false);
   const [showFinishSummary, setShowFinishSummary] = useState(false);
   const [segmentsStatus, setSegmentsStatus] = useState({});
   const [showFinishButton, setShowFinishButton] = useState(false);
   const [blinkText, setBlinkText] = useState("");
-  const [recordingStatus, setRecordingStatus] = useState("idle"); // idle, playing, recording
+  const [recordingStatus, setRecordingStatus] = useState("idle");
   const [showFinalSubmitModal, setShowFinalSubmitModal] = useState(false);
   const [canSubmitFinal, setCanSubmitFinal] = useState(false);
   const [isSubmittingSegment, setIsSubmittingSegment] = useState(false);
   const [isAudioProcessing, setIsAudioProcessing] = useState(false);
 
-  // 🔥 NEW STATE for playback progress
+  // Playback states
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
 
-  // 🔥 NEW STATES for timer functionality
+  // Timer states
   const [remainingTime, setRemainingTime] = useState(TOTAL_EXAM_TIME);
   const [completedSeconds, setCompletedSeconds] = useState(0);
   const [timerActive, setTimerActive] = useState(true);
   const [timeExpired, setTimeExpired] = useState(false);
-  const [displayTime, setDisplayTime] = useState("20:00"); // Smooth display time
+  const [displayTime, setDisplayTime] = useState("20:00");
 
   // Result modal
   const [opened, { open, close }] = useDisclosure(false);
   const [examResult, setExamResult] = useState(null);
 
-  // 🔥 CRITICAL FIX: Add initialization tracking refs
+  // Refs
   const isInitializedRef = useRef(false);
   const initializationInProgressRef = useRef(false);
-
-  // 🔥 NEW REFS for timer functionality
+  const timerStartedRef = useRef(false);
   const incrementApiIntervalRef = useRef(null);
   const animationFrameRefTimer = useRef(null);
   const startTimeRef = useRef(Date.now());
   const accumulatedTimeRef = useRef(0);
   const lastApiCallTimeRef = useRef(Date.now());
-
-  // Refs
   const originalAudioRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const videoRef = useRef(null);
@@ -111,19 +108,23 @@ const PracticeDialogue = () => {
   const animationFrameRef = useRef(null);
   const hiddenAudioRef = useRef(null);
 
-  // Initialize gray wave heights
-  useEffect(() => {
-    const heights = Array.from({ length: 20 }, () => Math.random() * 100);
-    setWaveHeights(heights);
-  }, [currentSegmentIndex]);
+  // Utility function
+  const formatTime = useCallback((seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }, []);
 
-  // 🔥 NEW: Function to fetch completed seconds from API
-  const fetchCompletedSeconds = useCallback(async () => {
-    if (!userId || !dialogueId) return 0;
-
-    try {
+  // 🔥 REACT QUERY: API 1 (GET completed seconds)
+  const {
+    data: initialTimeData = 0,
+    isSuccess: isTimeDataSuccess,
+    isError: isTimeDataError,
+  } = useQuery({
+    queryKey: ["dialogueTime", userId, dialogueId, examData?.attempt?.id],
+    queryFn: async () => {
       const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}`,
+        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}?examAttemptId=${examData?.attempt?.id}`,
         {
           method: "GET",
           headers: {
@@ -133,196 +134,124 @@ const PracticeDialogue = () => {
         },
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          return data.data.completedSeconds || 0;
-        }
+      if (!response.ok) {
+        throw new Error("Failed to fetch completed seconds");
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        return data.data.completedSeconds || 0;
       }
       return 0;
-    } catch (error) {
-      console.error("Error fetching completed seconds:", error);
-      return 0;
-    }
-  }, [userId, dialogueId]);
+    },
+    enabled: !!userId && !!dialogueId && !!examData?.attempt?.id,
+    staleTime: Infinity,
+    retry: false,
+  });
 
-  // 🔥 NEW: Function to increment completed seconds
-  const incrementCompletedSeconds = useCallback(
-    async (seconds) => {
-      if (!userId || !dialogueId || !timerActive) return;
-
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}/increment`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-            body: JSON.stringify({ seconds }),
+  // 🔥 REACT QUERY: API 2 (PATCH increment)
+  const incrementMutation = useMutation({
+    mutationFn: async (seconds) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}/increment?examAttemptId=${examData?.attempt?.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        );
+          body: JSON.stringify({ seconds }),
+        },
+      );
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setCompletedSeconds((prev) => prev + seconds);
-          }
-        }
-      } catch (error) {
-        console.error("Error incrementing completed seconds:", error);
-        // Silent fail - don't show error to user
+      if (!response.ok) {
+        throw new Error("Failed to increment completed seconds");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      if (data.success) {
+        setCompletedSeconds((prev) => prev + variables);
       }
     },
-    [userId, dialogueId, timerActive],
+    onError: (error) => {
+      console.error("Error incrementing completed seconds:", error);
+    },
+  });
+
+  // 🔥 FUNCTION DEFINITIONS IN CORRECT ORDER
+
+  // 1. submitCurrentSegment (FIXED: removed currentSegment reference)
+  const submitCurrentSegment = useCallback(
+    async (segmentId, audioBlob) => {
+      if (!segmentId || !audioBlob || !examAttemptId) {
+        console.error("Missing required data for API call");
+        return null;
+      }
+
+      try {
+        console.log("🔵 AI-Exam API CALLED for segment:", segmentId);
+
+        // FIX: Removed fallback to currentSegment, only use filteredSegments
+        const segment = filteredSegments.find((s) => s.id === segmentId);
+
+        if (!segment) {
+          console.error("Segment not found in filtered segments:", segmentId);
+          return null;
+        }
+
+        const formData = new FormData();
+        formData.append("dialogueId", dialogueId);
+        formData.append(
+          "language",
+          examData?.dialogue?.Language?.name || languageCode || "English",
+        );
+        formData.append("segmentId", segmentId);
+        formData.append("audioTranscript", segment?.textContent || "");
+        formData.append("examAttemptId", examAttemptId);
+        formData.append("audioUrl", segment?.audioUrl || "");
+        formData.append("suggestedAudioUrl", segment?.suggestedAudioUrl || "");
+        formData.append("userId", userId);
+        formData.append("attemptCount", attemptsCount[segmentId] || 0);
+        formData.append("userAudio", audioBlob, "recording.webm");
+
+        const response = await submitSegment(formData);
+        console.log("✅ AI-Exam API SUCCESS:", response);
+        return response;
+      } catch (error) {
+        console.error("❌ Failed to submit segment:", error);
+        throw error;
+      }
+    },
+    [
+      dialogueId,
+      examData,
+      languageCode,
+      examAttemptId,
+      userId,
+      filteredSegments,
+      attemptsCount,
+      // FIX: Removed currentSegment from dependencies
+    ],
   );
 
-  // 🔥 NEW: Format time for display (MM:SS)
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  // 🔥 NEW: Smooth timer using requestAnimationFrame
-  const startSmoothTimer = useCallback(async () => {
-    // Clear any existing animation frames
-    if (animationFrameRefTimer.current) {
-      cancelAnimationFrame(animationFrameRefTimer.current);
-      animationFrameRefTimer.current = null;
-    }
-
-    if (incrementApiIntervalRef.current) {
-      clearInterval(incrementApiIntervalRef.current);
-      incrementApiIntervalRef.current = null;
-    }
-
-    // Fetch initial completed seconds
-    const initialCompleted = await fetchCompletedSeconds();
-    setCompletedSeconds(initialCompleted);
-
-    // Calculate initial remaining time
-    const initialRemaining = TOTAL_EXAM_TIME - initialCompleted;
-    const initialRemainingValid = initialRemaining > 0 ? initialRemaining : 0;
-
-    setRemainingTime(initialRemainingValid);
-    setDisplayTime(formatTime(initialRemainingValid));
-
-    if (initialRemainingValid <= 0) {
-      setTimeExpired(true);
-      handleTimeExpired();
-      return;
-    }
-
-    setTimerActive(true);
-    setTimeExpired(false);
-    startTimeRef.current = Date.now();
-    accumulatedTimeRef.current = initialCompleted;
-    lastApiCallTimeRef.current = Date.now();
-
-    // 🔥 SMOOTH TIMER: Use requestAnimationFrame for 60fps updates
-    let lastTimestamp = 0;
-    let secondsSinceLastApiCall = 0;
-
-    const updateTimer = (timestamp) => {
-      if (!lastTimestamp) lastTimestamp = timestamp;
-
-      const elapsed = Date.now() - startTimeRef.current;
-      const totalElapsedSeconds = accumulatedTimeRef.current + elapsed / 1000;
-
-      // Calculate remaining time
-      const remaining = Math.max(0, TOTAL_EXAM_TIME - totalElapsedSeconds);
-
-      // Update display time (smoothly every frame)
-      setDisplayTime(formatTime(remaining));
-
-      // Update remaining time state less frequently (every 100ms for reactivity)
-      if (timestamp - lastTimestamp >= 100) {
-        setRemainingTime(Math.floor(remaining));
-        lastTimestamp = timestamp;
-      }
-
-      // Check for API call every 10 seconds
-      const now = Date.now();
-      secondsSinceLastApiCall = (now - lastApiCallTimeRef.current) / 1000;
-
-      if (secondsSinceLastApiCall >= 10) {
-        const secondsToAdd = Math.floor(secondsSinceLastApiCall);
-        if (secondsToAdd > 0) {
-          incrementCompletedSeconds(secondsToAdd);
-          lastApiCallTimeRef.current = now;
-        }
-      }
-
-      // Check if time expired
-      if (remaining <= 0) {
-        setTimeExpired(true);
-        handleTimeExpired();
-        return;
-      }
-
-      // Continue animation if timer is active
-      if (timerActive && !timeExpired) {
-        animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
-      }
-    };
-
-    // Start the smooth animation
-    animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
-  }, [
-    fetchCompletedSeconds,
-    incrementCompletedSeconds,
-    timerActive,
-    timeExpired,
-  ]);
-
-  // 🔥 NEW: Handle time expiration
-  const handleTimeExpired = useCallback(async () => {
-    setTimerActive(false);
-
-    // Clear animation frame
-    if (animationFrameRefTimer.current) {
-      cancelAnimationFrame(animationFrameRefTimer.current);
-      animationFrameRefTimer.current = null;
-    }
-
-    // Clear API interval
-    if (incrementApiIntervalRef.current) {
-      clearInterval(incrementApiIntervalRef.current);
-      incrementApiIntervalRef.current = null;
-    }
-
-    // Set final display time
-    setDisplayTime("00:00");
-    setRemainingTime(0);
-
-    // Auto-submit the exam
-    await handleAutoSubmit();
-  }, []);
-
-  // 🔥 NEW: Auto-submit function when time expires
+  // 2. handleAutoSubmit (depends on submitCurrentSegment)
   const handleAutoSubmit = useCallback(async () => {
     setIsSubmittingFinal(true);
 
     try {
-      // Submit last segment if not already submitted
-      const currentSegment = filteredSegments[currentSegmentIndex];
-      if (currentSegment && recordedAudios[currentSegment.id]) {
+      const currentSeg = filteredSegments[currentSegmentIndex];
+      if (currentSeg && recordedAudios[currentSeg.id]) {
         await submitCurrentSegment(
-          currentSegment.id,
-          recordedAudios[currentSegment.id],
+          currentSeg.id,
+          recordedAudios[currentSeg.id],
         );
       }
 
-      // Get final result
       const result = await getExamResult(examAttemptId);
       setExamResult(result);
-
-      // Clear localStorage
       localStorage.removeItem("examData");
-
-      // Open result modal
       open();
     } catch (error) {
       console.error("Failed to auto-submit exam:", error);
@@ -336,58 +265,187 @@ const PracticeDialogue = () => {
     recordedAudios,
     examAttemptId,
     open,
+    submitCurrentSegment,
   ]);
 
-  // 🔥 NEW: Filter segments to show only those with isDone: false
+  // 3. handleTimeExpired (depends on handleAutoSubmit)
+  const handleTimeExpired = useCallback(async () => {
+    setTimerActive(false);
+
+    if (animationFrameRefTimer.current) {
+      cancelAnimationFrame(animationFrameRefTimer.current);
+      animationFrameRefTimer.current = null;
+    }
+
+    if (incrementApiIntervalRef.current) {
+      clearInterval(incrementApiIntervalRef.current);
+      incrementApiIntervalRef.current = null;
+    }
+
+    setDisplayTime("00:00");
+    setRemainingTime(0);
+
+    await handleAutoSubmit();
+  }, [handleAutoSubmit]);
+
+  // 4. startSmoothTimer (depends on handleTimeExpired and incrementMutation)
+  const startSmoothTimer = useCallback(
+    (initialCompleted) => {
+      // Clear any existing animation frames
+      if (animationFrameRefTimer.current) {
+        cancelAnimationFrame(animationFrameRefTimer.current);
+        animationFrameRefTimer.current = null;
+      }
+
+      if (incrementApiIntervalRef.current) {
+        clearInterval(incrementApiIntervalRef.current);
+        incrementApiIntervalRef.current = null;
+      }
+
+      setCompletedSeconds(initialCompleted);
+
+      const initialRemaining = TOTAL_EXAM_TIME - initialCompleted;
+      const initialRemainingValid = initialRemaining > 0 ? initialRemaining : 0;
+
+      setRemainingTime(initialRemainingValid);
+      setDisplayTime(formatTime(initialRemainingValid));
+
+      if (initialRemainingValid <= 0) {
+        setTimeExpired(true);
+        handleTimeExpired();
+        return;
+      }
+
+      setTimerActive(true);
+      setTimeExpired(false);
+      startTimeRef.current = Date.now();
+      accumulatedTimeRef.current = initialCompleted;
+      lastApiCallTimeRef.current = Date.now();
+
+      let lastTimestamp = 0;
+      let secondsSinceLastApiCall = 0;
+
+      const updateTimer = (timestamp) => {
+        if (!lastTimestamp) lastTimestamp = timestamp;
+
+        const elapsed = Date.now() - startTimeRef.current;
+        const totalElapsedSeconds = accumulatedTimeRef.current + elapsed / 1000;
+        const remaining = Math.max(0, TOTAL_EXAM_TIME - totalElapsedSeconds);
+
+        setDisplayTime(formatTime(remaining));
+
+        if (timestamp - lastTimestamp >= 100) {
+          setRemainingTime(Math.floor(remaining));
+          lastTimestamp = timestamp;
+        }
+
+        const now = Date.now();
+        secondsSinceLastApiCall = (now - lastApiCallTimeRef.current) / 1000;
+
+        if (secondsSinceLastApiCall >= 10) {
+          const secondsToAdd = Math.floor(secondsSinceLastApiCall);
+          if (secondsToAdd > 0) {
+            incrementMutation.mutate(secondsToAdd);
+            lastApiCallTimeRef.current = now;
+          }
+        }
+
+        if (remaining <= 0) {
+          setTimeExpired(true);
+          handleTimeExpired();
+          return;
+        }
+
+        if (timerActive && !timeExpired) {
+          animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
+        }
+      };
+
+      animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
+    },
+    [
+      incrementMutation,
+      timerActive,
+      timeExpired,
+      handleTimeExpired,
+      formatTime,
+    ],
+  );
+
+  // 5. filterSegments
   const filterSegments = useCallback((segmentsArray) => {
     return segmentsArray.filter((segment) => !segment.isDone);
   }, []);
 
-  // Initialize exam
+  // 🔥 EFFECTS
+
+  // Effect to start timer when API 1 returns successfully
   useEffect(() => {
-    // ✅ Early return conditions
+    if (
+      isTimeDataSuccess &&
+      !timerStartedRef.current &&
+      examData?.attempt?.id
+    ) {
+      timerStartedRef.current = true;
+      startSmoothTimer(initialTimeData);
+    }
+  }, [
+    isTimeDataSuccess,
+    initialTimeData,
+    examData?.attempt?.id,
+    startSmoothTimer,
+  ]);
+
+  // Reset timer ref when exam changes
+  useEffect(() => {
+    timerStartedRef.current = false;
+  }, [examData?.attempt?.id]);
+
+  // Initialize gray wave heights
+  useEffect(() => {
+    const heights = Array.from({ length: 20 }, () => Math.random() * 100);
+    setWaveHeights(heights);
+  }, [currentSegmentIndex]);
+
+  // Main initialization effect
+  useEffect(() => {
     if (!dialogueId || !userId) {
       console.error("Missing dialogue ID or user ID");
       navigate("/user");
       return;
     }
 
-    // ✅ Already initialized check
     if (isInitializedRef.current) {
       return;
     }
 
-    // ✅ Already in progress check
     if (initializationInProgressRef.current) {
       return;
     }
 
-    // ✅ Mark as in progress
     initializationInProgressRef.current = true;
 
     const initializeExam = async () => {
       try {
         setIsLoading(true);
 
-        const examData = {
+        const examDataPayload = {
           examType,
           dialogueId: parseInt(dialogueId),
           userId,
+          new: tryAgain,
         };
 
         console.log("🔥 API CALL: startExamAttempt - ONLY ONCE");
-        const response = await startExamAttempt(examData);
+        const response = await startExamAttempt(examDataPayload);
 
-        // Filter segments to show only those with isDone: false
         const notDoneSegments = filterSegments(response.segments || []);
 
-        // Save exam data
         setExamData(response);
         setSegments(response.segments || []);
         setFilteredSegments(notDoneSegments);
         setExamAttemptId(response.attempt.id);
 
-        // Initialize recordings and attempts objects ONLY for filtered segments
         const initialRecordings = {};
         const initialAttempts = {};
         const initialStatus = {};
@@ -400,11 +458,8 @@ const PracticeDialogue = () => {
         setRecordedAudios(initialRecordings);
         setAttemptsCount(initialAttempts);
         setSegmentsStatus(initialStatus);
-
-        // Check if it's the last segment
         setIsLastSegment(notDoneSegments.length === 1);
 
-        // Save to localStorage for persistence
         localStorage.setItem(
           "examData",
           JSON.stringify({
@@ -413,10 +468,6 @@ const PracticeDialogue = () => {
           }),
         );
 
-        // Start the smooth timer
-        await startSmoothTimer();
-
-        // ✅ Mark as initialized
         isInitializedRef.current = true;
       } catch (error) {
         console.error("Failed to initialize exam:", error);
@@ -430,9 +481,8 @@ const PracticeDialogue = () => {
 
     initializeExam();
 
-    // Cleanup on unmount
+    // Cleanup
     return () => {
-      // Stop all animation frames and intervals
       if (animationFrameRefTimer.current) {
         cancelAnimationFrame(animationFrameRefTimer.current);
         animationFrameRefTimer.current = null;
@@ -457,14 +507,7 @@ const PracticeDialogue = () => {
         hiddenAudioRef.current = null;
       }
     };
-  }, [
-    dialogueId,
-    userId,
-    navigate,
-    examType,
-    filterSegments,
-    startSmoothTimer,
-  ]);
+  }, [dialogueId, userId, navigate, examType, filterSegments]);
 
   // Initialize camera
   useEffect(() => {
@@ -490,10 +533,9 @@ const PracticeDialogue = () => {
     }
   }, [isLoading, examData]);
 
-  // Get current segment (from filtered segments)
+  // 🔥 DEFINE currentSegment HERE (after all hooks that might reference it)
+  // This must come after all useCallback definitions to avoid temporal dead zone
   const currentSegment = filteredSegments[currentSegmentIndex];
-
-  // Get current segment's recording and attempts
   const currentRecording = currentSegment
     ? recordedAudios[currentSegment.id]
     : null;
@@ -506,7 +548,7 @@ const PracticeDialogue = () => {
     }
   }, [currentSegmentIndex, filteredSegments]);
 
-  // Calculate if all segments are attempted
+  // Calculate if all segments attempted
   useEffect(() => {
     if (filteredSegments.length > 0) {
       const allAttempted = filteredSegments.every((segment) => {
@@ -517,7 +559,7 @@ const PracticeDialogue = () => {
     }
   }, [filteredSegments, attemptsCount]);
 
-  // Check if navigation should be disabled
+  // Check navigation disabled
   const shouldDisableNavigation =
     recordingStatus === "playing" ||
     recordingStatus === "recording" ||
@@ -525,45 +567,36 @@ const PracticeDialogue = () => {
     isSubmittingSegment ||
     timeExpired;
 
-  // Start audio and auto-record function
+  // Audio functions
   const startAudioAndRecord = () => {
     if (!currentSegment || timeExpired) return;
 
-    // Check if this segment has been attempted before (attempts > 0)
     if (attemptsCount[currentSegment.id] > 0) {
       setShowRepeatConfirm(true);
       return;
     }
 
-    // Start the process
     playOriginalAudioAndAutoRecord();
   };
 
-  // Play original audio and auto-start recording when finished
   const playOriginalAudioAndAutoRecord = () => {
     if (currentSegment?.audioUrl && !timeExpired) {
-      // Set status to playing
       setRecordingStatus("playing");
       setBlinkText("Playing Source File");
       setShowFinishButton(true);
-
-      // Reset progress
       setPlaybackProgress(0);
 
-      // Clean up any existing audio
       if (hiddenAudioRef.current) {
         hiddenAudioRef.current.pause();
         hiddenAudioRef.current = null;
       }
 
-      // Create a hidden audio element for auto-play
       hiddenAudioRef.current = new Audio(currentSegment.audioUrl);
 
       hiddenAudioRef.current.addEventListener("loadedmetadata", () => {
         setAudioDuration(hiddenAudioRef.current.duration);
       });
 
-      // 🔥 EK HI EVENT LISTENER SE SMOOTH PROGRESS
       const updateProgress = () => {
         if (hiddenAudioRef.current && !hiddenAudioRef.current.ended) {
           const progress =
@@ -574,7 +607,6 @@ const PracticeDialogue = () => {
         }
       };
 
-      // Use requestAnimationFrame for smoother updates
       let animationFrameId;
       const smoothUpdate = () => {
         updateProgress();
@@ -590,16 +622,14 @@ const PracticeDialogue = () => {
       hiddenAudioRef.current
         .play()
         .then(() => {
-          // Start smooth progress tracking
           animationFrameId = requestAnimationFrame(smoothUpdate);
 
-          // Auto start recording when audio ends
           hiddenAudioRef.current.onended = () => {
             cancelAnimationFrame(animationFrameId);
             setRecordingStatus("recording");
             setBlinkText("REC");
-            setPlaybackProgress(100); // Complete the progress
-            startRecording(); // Auto start recording
+            setPlaybackProgress(100);
+            startRecording();
           };
 
           hiddenAudioRef.current.onerror = () => {
@@ -607,7 +637,7 @@ const PracticeDialogue = () => {
             setRecordingStatus("idle");
             setBlinkText("");
             setShowFinishButton(false);
-            setPlaybackProgress(0); // Reset progress on error
+            setPlaybackProgress(0);
             alert("Failed to play audio. Please try again.");
           };
         })
@@ -616,13 +646,12 @@ const PracticeDialogue = () => {
           setRecordingStatus("idle");
           setBlinkText("");
           setShowFinishButton(false);
-          setPlaybackProgress(0); // Reset progress on error
+          setPlaybackProgress(0);
           alert("Failed to play audio. Please make sure audio is available.");
         });
     }
   };
 
-  // Initialize audio analyzer for live waveforms
   const initializeAudioAnalyzer = (stream) => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (
@@ -639,8 +668,6 @@ const PracticeDialogue = () => {
     dataArrayRef.current = new Uint8Array(bufferLength);
 
     source.connect(analyserRef.current);
-
-    // Start updating wave heights
     updateWaveHeights();
   };
 
@@ -649,12 +676,10 @@ const PracticeDialogue = () => {
 
     analyserRef.current.getByteFrequencyData(dataArrayRef.current);
 
-    // Get average of frequencies for wave heights
     const average =
       dataArrayRef.current.reduce((a, b) => a + b) /
       dataArrayRef.current.length;
 
-    // Update wave heights based on audio input
     const newHeights = Array.from({ length: 20 }, (_, i) => {
       const index = Math.floor(i * (dataArrayRef.current.length / 20));
       const height = (dataArrayRef.current[index] || average) / 2.55;
@@ -662,67 +687,9 @@ const PracticeDialogue = () => {
     });
 
     setWaveHeights(newHeights);
-
-    // Continue animation
     animationFrameRef.current = requestAnimationFrame(updateWaveHeights);
   };
 
-  // Submit current segment (AI-Exam API call) - UPDATED
-  const submitCurrentSegment = useCallback(
-    async (segmentId, audioBlob) => {
-      if (!segmentId || !audioBlob || !examAttemptId) {
-        console.error("Missing required data for API call");
-        return null;
-      }
-
-      try {
-        console.log("🔵 AI-Exam API CALLED for segment:", segmentId);
-
-        // Get current segment data
-        const segment =
-          filteredSegments.find((s) => s.id === segmentId) || currentSegment;
-
-        // Create FormData
-        const formData = new FormData();
-        formData.append("dialogueId", dialogueId);
-        formData.append(
-          "language",
-          examData?.dialogue?.Language?.name || languageCode || "English",
-        );
-        formData.append("segmentId", segmentId);
-        formData.append("audioTranscript", segment?.textContent || "");
-        formData.append("examAttemptId", examAttemptId);
-        formData.append("audioUrl", segment?.audioUrl || "");
-        formData.append("suggestedAudioUrl", segment?.suggestedAudioUrl || "");
-        formData.append("userId", userId);
-        formData.append("attemptCount", attemptsCount[segmentId] || 0);
-
-        // Append audio file
-        formData.append("userAudio", audioBlob, "recording.webm");
-
-        // Submit segment - AI-Exam API call
-        const response = await submitSegment(formData);
-        console.log("✅ AI-Exam API SUCCESS:", response);
-
-        return response;
-      } catch (error) {
-        console.error("❌ Failed to submit segment:", error);
-        throw error;
-      }
-    },
-    [
-      dialogueId,
-      examData,
-      languageCode,
-      examAttemptId,
-      userId,
-      filteredSegments,
-      currentSegment,
-      attemptsCount,
-    ],
-  );
-
-  // Start recording - UPDATED with API call in recorder.onstop
   const startRecording = async () => {
     try {
       const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -746,38 +713,28 @@ const PracticeDialogue = () => {
         setRecordingStatus("idle");
         setBlinkText("");
 
-        // Create audio blob
         const audioBlob = new Blob(chunks, { type: "audio/webm" });
 
-        // Save recording for current segment
         if (currentSegment) {
           setRecordedAudios((prev) => ({
             ...prev,
             [currentSegment.id]: audioBlob,
           }));
 
-          // Update attempts count for this segment
           setAttemptsCount((prev) => ({
             ...prev,
             [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
           }));
 
-          // Update segment status
           setSegmentsStatus((prev) => ({
             ...prev,
             [currentSegment.id]: "answered",
           }));
 
-          // 🔴 CRITICAL FIX: Call AI-Exam API in BACKGROUND (no UI changes)
-          // Use setTimeout to make it truly async and non-blocking
           setTimeout(async () => {
             try {
               console.log("🎯 AI-Exam API calling in background...");
-
-              // Get current segment data
               const segment = currentSegment;
-
-              // Create FormData
               const formData = new FormData();
               formData.append("dialogueId", dialogueId);
               formData.append(
@@ -794,33 +751,24 @@ const PracticeDialogue = () => {
               );
               formData.append("userId", userId);
               formData.append("attemptCount", attemptsCount[segment.id] || 0);
-
-              // Append audio file
               formData.append("userAudio", audioBlob, "recording.webm");
 
-              // Submit segment - AI-Exam API call (background, no await)
               submitSegment(formData)
                 .then((response) => {
                   console.log("✅ AI-Exam API SUCCESS (background):", response);
                 })
                 .catch((error) => {
                   console.error("❌ AI-Exam API failed (background):", error);
-                  // Silent fail - user doesn't need to know
                 });
             } catch (error) {
               console.error("❌ Error in background API call:", error);
-              // Silent fail
             }
-          }, 100); // Small delay to ensure UI is not blocked
+          }, 100);
         }
 
-        // Reset UI
         setShowFinishButton(false);
-
-        // Stop all audio tracks
         audioStream.getTracks().forEach((track) => track.stop());
 
-        // Clean up audio analyzer
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
         }
@@ -833,8 +781,6 @@ const PracticeDialogue = () => {
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
-
-      // Initialize audio analyzer for live waveforms
       initializeAudioAnalyzer(audioStream);
     } catch (error) {
       console.error("Recording error:", error);
@@ -845,44 +791,33 @@ const PracticeDialogue = () => {
     }
   };
 
-  // Stop recording
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
       mediaRecorder.stop();
     }
   };
 
-  // Updated Finish Attempt Button Handler - SIMPLIFIED
   const handleFinishAttempt = () => {
     if (!currentSegment || timeExpired) return;
 
-    console.log("🎯 Finish Attempt clicked");
-
-    // Simply stop recording (API will be called automatically in recorder.onstop)
     if (isRecording) {
-      console.log("🛑 Stopping recording...");
       stopRecording();
     }
 
-    // Reset UI
     setShowFinishButton(false);
     setRecordingStatus("idle");
     setBlinkText("");
   };
 
-  // Handle NEXT button click (for all segments except last)
   const handleNextClick = async () => {
     if (timeExpired) return;
 
-    // Move to next segment immediately (NO API call here)
     if (currentSegmentIndex < filteredSegments.length - 1) {
       setCurrentSegmentIndex((prev) => prev + 1);
-      // Reset audio states
       setRecordingStatus("idle");
       setBlinkText("");
       setShowFinishButton(false);
-      setPlaybackProgress(0); // Reset progress
-      // Clean up hidden audio
+      setPlaybackProgress(0);
       if (hiddenAudioRef.current) {
         hiddenAudioRef.current.pause();
         hiddenAudioRef.current = null;
@@ -890,11 +825,9 @@ const PracticeDialogue = () => {
     }
   };
 
-  // Updated handleFinishClick (for last segment only)
   const handleFinishClick = async () => {
     if (timeExpired) return;
 
-    // Check if all segments are answered
     const allAnswered = filteredSegments.every(
       (segment) => segmentsStatus[segment.id] === "answered",
     );
@@ -904,16 +837,13 @@ const PracticeDialogue = () => {
       return;
     }
 
-    // Show final submission modal
     setShowFinalSubmitModal(true);
   };
 
-  // Handle final submission
   const handleFinalSubmission = async () => {
     setIsSubmittingFinal(true);
 
     try {
-      // Submit last segment if not already submitted
       if (
         currentSegment &&
         currentRecording &&
@@ -922,29 +852,20 @@ const PracticeDialogue = () => {
         await submitCurrentSegment(currentSegment.id, currentRecording);
       }
 
-      // Stop timer animation frame
       if (animationFrameRefTimer.current) {
         cancelAnimationFrame(animationFrameRefTimer.current);
         animationFrameRefTimer.current = null;
       }
 
-      // Stop API interval
       if (incrementApiIntervalRef.current) {
         clearInterval(incrementApiIntervalRef.current);
         incrementApiIntervalRef.current = null;
       }
 
-      // Get final result
       const result = await getExamResult(examAttemptId);
       setExamResult(result);
-
-      // Clear localStorage
       localStorage.removeItem("examData");
-
-      // Close final submit modal
       setShowFinalSubmitModal(false);
-
-      // Open result modal
       open();
     } catch (error) {
       console.error("Failed to get result:", error);
@@ -954,18 +875,15 @@ const PracticeDialogue = () => {
     }
   };
 
-  // Handle previous button click
   const handlePreviousClick = () => {
     if (timeExpired) return;
 
     if (currentSegmentIndex > 0) {
       setCurrentSegmentIndex((prev) => prev - 1);
-      // Reset audio states
       setRecordingStatus("idle");
       setBlinkText("");
       setShowFinishButton(false);
-      setPlaybackProgress(0); // Reset progress
-      // Clean up hidden audio
+      setPlaybackProgress(0);
       if (hiddenAudioRef.current) {
         hiddenAudioRef.current.pause();
         hiddenAudioRef.current = null;
@@ -973,7 +891,7 @@ const PracticeDialogue = () => {
     }
   };
 
-  // Load from localStorage on refresh
+  // Load from localStorage
   useEffect(() => {
     const savedExamData = localStorage.getItem("examData");
     if (savedExamData) {
@@ -1004,36 +922,20 @@ const PracticeDialogue = () => {
       setRecordedAudios(initialRecordings);
       setAttemptsCount(initialAttempts);
       setSegmentsStatus(initialStatus);
-
-      // Start smooth timer when loading from localStorage
-      startSmoothTimer();
-
-      // ✅ Mark as initialized when loading from localStorage
       isInitializedRef.current = true;
     }
-  }, [startSmoothTimer]);
+  }, []);
 
-  // Handle repeat confirmation
   const handleRepeatConfirm = () => {
     setShowRepeatConfirm(false);
     playOriginalAudioAndAutoRecord();
   };
 
-  // Handle segment click in summary modal
   const handleSegmentClick = (index) => {
     setCurrentSegmentIndex(index);
     setShowFinishSummary(false);
   };
 
-  // Wave animation styles
-  const waveStyle = {
-    animation:
-      recordingStatus === "playing"
-        ? "waveAnimation 1s ease-in-out infinite alternate"
-        : "none",
-  };
-
-  // Add CSS for wave animation
   const waveAnimationCSS = `
     @keyframes waveAnimation {
       0% { height: 30%; }
@@ -1047,7 +949,6 @@ const PracticeDialogue = () => {
     }
   `;
 
-  // Live recording wave component
   const LiveRecordingWave = ({ index }) => {
     const height = waveHeights[index] || 50;
     return (
@@ -1093,10 +994,8 @@ const PracticeDialogue = () => {
 
   return (
     <>
-      {/* Add wave animation CSS */}
       <style>{waveAnimationCSS}</style>
 
-      {/* Loading Overlay for Final Submission */}
       {isSubmittingFinal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
           <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
@@ -1121,7 +1020,6 @@ const PracticeDialogue = () => {
         </div>
       )}
 
-      {/* Segment Submission Indicator */}
       {(isSubmittingSegment || isAudioProcessing) && (
         <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
           {isSubmittingSegment
@@ -1130,14 +1028,12 @@ const PracticeDialogue = () => {
         </div>
       )}
 
-      {/* Time Expired Warning */}
       {timeExpired && (
         <div className="fixed top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
           ⏰ Time Expired! Submitting your exam...
         </div>
       )}
 
-      {/* Repeat Confirmation Modal */}
       <Modal
         opened={showRepeatConfirm}
         onClose={() => setShowRepeatConfirm(false)}
@@ -1170,7 +1066,6 @@ const PracticeDialogue = () => {
         </div>
       </Modal>
 
-      {/* Finish Exam Summary Modal */}
       <Modal
         opened={showFinishSummary}
         centered
@@ -1239,7 +1134,6 @@ const PracticeDialogue = () => {
         </div>
       </Modal>
 
-      {/* Final Submission Modal */}
       <Modal
         opened={showFinalSubmitModal}
         onClose={() => !isSubmittingFinal && setShowFinalSubmitModal(false)}
@@ -1292,7 +1186,6 @@ const PracticeDialogue = () => {
             ))}
           </div>
 
-          {/* Buttons */}
           <div className="flex justify-end mt-6 gap-2">
             <button
               className="hover:bg-gray-200 cursor-pointer text-black !text-sm py-0.5 px-6 rounded-full"
@@ -1316,7 +1209,6 @@ const PracticeDialogue = () => {
       </Modal>
 
       <div className="flex flex-col w-full max-h-[calc(100dvh-64px)] lg:max-h-screen h-full overflow-hidden">
-        {/* Top Header */}
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 border-b-3 border-[#006b5e]">
           <div className="flex items-center mb-2 sm:mb-0">
             <div className="ml-2 leading-tight">
@@ -1335,7 +1227,6 @@ const PracticeDialogue = () => {
           </div>
         </header>
 
-        {/* Breadcrumb & Progress Bar */}
         <div className="flex flex-col text-sm   sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-300  ">
           <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-0 flex-wrap">
             <span className="font-semibold">
@@ -1346,7 +1237,6 @@ const PracticeDialogue = () => {
             <span className="">Dialogue</span>
           </div>
 
-          {/* 🔥 SMOOTH TIMER Display */}
           <div className="flex items-center gap-4">
             <div
               className={`text-sm font-semibold ${remainingTime < 60 ? "text-red-600 animate-pulse" : "text-gray-700"}`}
@@ -1373,7 +1263,6 @@ const PracticeDialogue = () => {
           </div>
         </div>
 
-        {/* Segment & Help */}
         <div className="flex flex-col text-sm  sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 py-2 sm:py-3  border-b border-gray-300  ">
           <div className="flex items-center gap-1  sm:gap-2 mb-2 sm:mb-0 flex-wrap">
             <span className="font-semibold">
@@ -1385,13 +1274,8 @@ const PracticeDialogue = () => {
           </div>
         </div>
 
-        {/* Main Content */}
-        <main
-          className="grow px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-8 flex-1   overflow-y-scroll
-        "
-        >
+        <main className="grow px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-8 flex-1   overflow-y-scroll">
           <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:gap-12">
-            {/* Left Instructions */}
             <div className="flex-1 space-y-3 sm:space-y-4 text-xs sm:text-[13.5px] text-[#444] leading-relaxed">
               {isLastSegment ? (
                 <h2 className=" text-base text-[#3db39e] font-semibold mb-4 sm:mb-6 lg:mb-8 tracking-normal text-center sm:text-left">
@@ -1403,7 +1287,6 @@ const PracticeDialogue = () => {
                 </h2>
               )}
 
-              {/* 🔥 NEW: Time Warning for last 60 seconds */}
               {remainingTime < 60 && !isLastSegment && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                   <p className="text-red-600 font-semibold flex items-center gap-2">
@@ -1481,9 +1364,7 @@ const PracticeDialogue = () => {
               )}
             </div>
 
-            {/* Right Interface (Video & Audio) */}
             <div className="flex-1">
-              {/* Camera Feed */}
               <div className="w-full h-52  mb-4 sm:mb-6 overflow-hidden  flex items-center justify-center">
                 <video
                   ref={videoRef}
@@ -1495,9 +1376,7 @@ const PracticeDialogue = () => {
                 />
               </div>
 
-              {/* Audio Section */}
               <div className="space-y-4 sm:space-y-6">
-                {/* Hidden audio element for original audio */}
                 {currentSegment?.audioUrl && (
                   <audio
                     ref={originalAudioRef}
@@ -1506,27 +1385,22 @@ const PracticeDialogue = () => {
                   />
                 )}
 
-                {/* Original Audio - Gray wave visualization */}
                 <AudioWaveRecording
                   currentSegment={currentSegment}
                   isRecording={isRecording}
-                  playbackProgress={playbackProgress} // 🔥 NEW: Pass progress
-                  audioDuration={audioDuration} // 🔥 NEW: Pass duration
+                  playbackProgress={playbackProgress}
+                  audioDuration={audioDuration}
                 />
 
-                {/* Status and Controls */}
                 <div className="space-y-4">
-                  {/* Attempts Count, Start Button, Finish Button in same row */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                     <div className="flex items-center gap-3 w-full sm:w-auto">
-                      {/* Attempts Count */}
                       <div className="">
                         <span className="text-sm  text-gray-700">
                           Attempts: {currentAttempts}
                         </span>
                       </div>
 
-                      {/* Start Button */}
                       {!showFinishButton && !isRecording && (
                         <button
                           onClick={startAudioAndRecord}
@@ -1551,7 +1425,6 @@ const PracticeDialogue = () => {
                         </button>
                       )}
 
-                      {/* Finish Attempt Button */}
                       {showFinishButton && (
                         <button
                           onClick={handleFinishAttempt}
@@ -1569,7 +1442,6 @@ const PracticeDialogue = () => {
                       )}
                     </div>
 
-                    {/* Status Text in same row */}
                     <div className="flex items-center gap-2 animate-pulse">
                       {blinkText && recordingStatus === "playing" && (
                         <div
@@ -1601,9 +1473,7 @@ const PracticeDialogue = () => {
           </div>
         </main>
 
-        {/* Footer / Bottom Progress */}
         <footer className="w-full mt-auto">
-          {/* Segment Progress Dots */}
           <div className="flex w-full h-1.5 gap-0.5 sm:gap-1">
             {filteredSegments.map((_, i) => (
               <div
@@ -1615,7 +1485,6 @@ const PracticeDialogue = () => {
             ))}
           </div>
 
-          {/* Navigation Buttons */}
           <div className="flex justify-end items-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-100">
             <button
               onClick={handlePreviousClick}
@@ -1638,7 +1507,6 @@ const PracticeDialogue = () => {
 
             <div className="flex items-center gap-2 sm:gap-4">
               {isLastSegment ? (
-                // FINISH Button for last segment
                 <button
                   onClick={handleFinishClick}
                   disabled={
@@ -1654,7 +1522,6 @@ const PracticeDialogue = () => {
                   <span>Finish</span>
                 </button>
               ) : (
-                // NEXT Button for all other segments
                 <button
                   onClick={handleNextClick}
                   disabled={
@@ -1680,7 +1547,6 @@ const PracticeDialogue = () => {
           </div>
         </footer>
 
-        {/* Result Modal - Made Responsive */}
         <Modal
           opened={opened}
           closeOnClickOutside={false}
@@ -1695,7 +1561,6 @@ const PracticeDialogue = () => {
         >
           {examResult ? (
             <div className="space-y-4 sm:space-y-6 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto pr-1 sm:pr-2">
-              {/* Overall Summary */}
               <div className="bg-linear-to-r from-emerald-50 to-teal-50 p-4 sm:p-6 rounded-lg border border-emerald-200">
                 <h3 className="font-bold text-lg sm:text-xl text-emerald-800 mb-3 sm:mb-4">
                   <CheckCircle
@@ -1757,7 +1622,6 @@ const PracticeDialogue = () => {
                   </div>
                 </div>
 
-                {/* Additional Scores */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
                   <div className="bg-green-50 p-2 sm:p-3 rounded border border-green-200">
                     <p className="text-[10px] sm:text-xs text-green-600 font-medium">
@@ -1826,7 +1690,6 @@ const PracticeDialogue = () => {
                   </div>
                 </div>
 
-                {/* Overall Feedback */}
                 {examResult.summary?.overallFeedback && (
                   <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
                     <h4 className="font-semibold text-gray-800 mb-2 text-sm sm:text-base">
@@ -1843,7 +1706,6 @@ const PracticeDialogue = () => {
                 )}
               </div>
 
-              {/* Segments Breakdown */}
               {examResult.segments && examResult.segments.length > 0 && (
                 <div>
                   <h3 className="font-bold text-lg sm:text-xl text-gray-800 mb-3 sm:mb-4">
@@ -1860,7 +1722,6 @@ const PracticeDialogue = () => {
                         key={segment.id || index}
                         className="bg-white rounded-lg border border-gray-300 overflow-hidden"
                       >
-                        {/* Segment Header */}
                         <div className="bg-gray-100 p-3 sm:p-4 border-b border-gray-300">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <h4 className="font-bold text-base sm:text-lg text-gray-800">
@@ -1881,7 +1742,6 @@ const PracticeDialogue = () => {
                             </div>
                           </div>
 
-                          {/* Segment Details */}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-2 sm:mt-3">
                             <div className="flex items-center gap-1 sm:gap-2">
                               <Clock
@@ -1911,7 +1771,6 @@ const PracticeDialogue = () => {
                         </div>
 
                         <div className="p-3 sm:p-4">
-                          {/* User Transcription */}
                           <div className="mb-3 sm:mb-4">
                             <h5 className="font-semibold text-gray-700 mb-2 flex items-center text-sm sm:text-base">
                               <MessageSquare
@@ -1936,7 +1795,6 @@ const PracticeDialogue = () => {
                             </div>
                           </div>
 
-                          {/* AI Scores from aiScores object */}
                           {segment.aiScores && (
                             <div className="mb-3 sm:mb-4">
                               <h5 className="font-semibold text-gray-700 mb-2 text-sm sm:text-base">
@@ -2009,7 +1867,6 @@ const PracticeDialogue = () => {
                             </div>
                           )}
 
-                          {/* One Line Feedback */}
                           <div className="bg-emerald-50 p-3 sm:p-4 rounded border border-emerald-200">
                             <h5 className="font-semibold text-emerald-800 mb-2 text-sm sm:text-base">
                               Summary Feedback

@@ -40,6 +40,7 @@ import VocabularyManagement from "./(pages)/admin/Vocabulary";
 import LanguageSwitcher from "./components/LanguageSwither";
 import UserSubscriptions from "./(pages)/user/UserSubscriptions";
 import UserVocabulary from "./(pages)/user/UserVocabulary";
+import PracticeRapidReview from "./(pages)/user/rapid-review/RapidReview";
 
 export default function App() {
   return (
@@ -139,11 +140,11 @@ export default function App() {
             <Route index element={<UserDashboard />} />
             <Route path="vocabulary" element={<UserVocabulary />} />
             <Route path="dialogues" element={<ShowAllDialogues />} />
-            <Route path="practice-dialogue" element={<PracticeDialogue />} />
+
             <Route path="mock-test" element={<MockTest />} />
-            <Route path="mock-test-practice" element={<PracticeMockTest />} />
+
             <Route path="rapid-review" element={<ShowAllRapidDialogues />} />
-            <Route path="rapid-review-dialogues" element={<RapidReview />} />
+
             <Route path="subscriptions" element={<Courses />} />
             <Route path="user-subscriptions" element={<UserSubscriptions />} />
           </Route>
@@ -153,6 +154,14 @@ export default function App() {
         <Route path="/success" element={<PaymentSuccess />} />
         <Route path="/failure" element={<PaymentFailure />} />
         <Route path="/languageSwitcher" element={<LanguageSwitcher />} />
+
+        {/* Practice routes  */}
+        <Route path="mock-test-practice" element={<PracticeMockTest />} />
+        <Route
+          path="rapid-review-dialogues"
+          element={<PracticeRapidReview />}
+        />
+        <Route path="practice-dialogue" element={<PracticeDialogue />} />
 
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFound />} />

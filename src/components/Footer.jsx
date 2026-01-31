@@ -40,19 +40,19 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">Services</h3>
             <ul className="space-y-3">
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors text-sm md:text-base">
+              <li className="text-slate-400  text-sm md:text-base">
                 AI Scoring
               </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors text-sm md:text-base">
+              <li className="text-slate-400  text-sm md:text-base">
                 Real-time Feedback
               </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors text-sm md:text-base">
+              <li className="text-slate-400  text-sm md:text-base">
                 Progress Tracking
               </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors text-sm md:text-base">
+              <li className="text-slate-400  text-sm md:text-base">
                 Mock Exams
               </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors text-sm md:text-base">
+              <li className="text-slate-400  text-sm md:text-base">
                 Expert Coaching
               </li>
             </ul>
@@ -62,11 +62,11 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">Contact</h3>
             <div className="space-y-3">
-              <div className="flex items-center gap-3 text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
+              <div className="flex items-center gap-3 text-slate-400 ">
                 <Mail className="w-5 h-5" />
                 <span className="text-sm md:text-base">info@prepsmart.au</span>
               </div>
-              <div className="flex items-center gap-3 text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
+              <div className="flex items-center gap-3 text-slate-400 ">
                 <Phone className="w-5 h-5" />
                 <span className="text-sm md:text-base">+61 xxx xxx xxx</span>
               </div>

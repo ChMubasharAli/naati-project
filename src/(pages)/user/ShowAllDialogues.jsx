@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Search, Play, Lock, AlertCircle } from "lucide-react";
+import { Search, Play, Lock, AlertCircle, ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDialogues } from "../../api/dialogues";
 import { queryKeys } from "../../lib/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import ShowDialogueResultButton from "../../components/ShowDialogueResultButton";
 
 const ShowAllDialogues = () => {
   const { user, userLanguage } = useAuth();
@@ -44,9 +45,11 @@ const ShowAllDialogues = () => {
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
 
-    // Status filter
-    const matchesStatus =
-      statusFilter === "all" || dialogue.status === statusFilter;
+    // Status filter - updated for new status values
+    let matchesStatus = true;
+    if (statusFilter !== "all") {
+      matchesStatus = dialogue.status === statusFilter;
+    }
 
     // Difficulty filter
     const matchesDifficulty =
@@ -72,17 +75,41 @@ const ShowAllDialogues = () => {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  // Get practice button based on subscription status
+  // Status badge colors - updated for new status values
+  const getStatusStyle = (status) => {
+    const styles = {
+      completed: "bg-green-100 text-green-700",
+      in_progress: "bg-blue-100 text-blue-700",
+      not_started: "bg-yellow-100 text-yellow-700",
+    };
+    return styles[status] || "bg-gray-100 text-gray-700";
+  };
+
+  // Get practice button based on subscription status AND dialogue status
   const getPracticeButton = (dialogue) => {
+    // Agar status "completed" hai to URL mein new=true add karna hai
+    const isCompleted = dialogue.status === "completed";
+    const urlParams = `dialogueId=${dialogue.id}&examType=complete_dialogue&languageCode=${dialogue.Language?.langCode}&languageName=${dialogue.Language?.name}${isCompleted ? "&new=true" : ""}`;
+
     if (canPracticeDialogue) {
       return (
-        <Link
-          to={`/user/practice-dialogue?dialogueId=${dialogue.id}&examType=complete_dialogue&languageCode=${dialogue.Language?.langCode}&languageName=${dialogue.Language?.name}`}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
-        >
-          <Play size={16} fill="currentColor" />
-          Practice Dialogue
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to={`/practice-dialogue?${urlParams}`}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
+          >
+            <Play size={16} fill="currentColor" />
+            Practice Dialogue
+          </Link>
+
+          {/* Agar status completed hai to Show Result button bhi add karo */}
+          {isCompleted && (
+            <ShowDialogueResultButton
+              dialogueId={dialogue.id}
+              examType="complete_dialogue"
+            />
+          )}
+        </div>
       );
     } else {
       return (
@@ -98,15 +125,6 @@ const ShowAllDialogues = () => {
     }
   };
 
-  // Status badge colors
-  const getStatusStyle = (status) => {
-    const styles = {
-      completed: "bg-green-100 text-green-700",
-      pending: "bg-yellow-100 text-yellow-700",
-    };
-    return styles[status] || "bg-gray-100 text-gray-700";
-  };
-
   return (
     <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
       {/* Header */}
@@ -118,8 +136,8 @@ const ShowAllDialogues = () => {
           Choose a dialogue to practice your NAATI CCL skills
         </p>
 
-        {/* Trial Status Header */}
-        {!isSubscribed && (
+        {/* Trial Status Header - SIRF TAB SHOW KARNA JAB DATA LOAD HO JAYE */}
+        {!isLoading && !isError && !isSubscribed && (
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -162,8 +180,8 @@ const ShowAllDialogues = () => {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Filters - Updated with dropdowns only */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -176,38 +194,19 @@ const ShowAllDialogues = () => {
           />
         </div>
 
-        {/* Status Filter Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setStatusFilter("all")}
-            className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
-              statusFilter === "all"
-                ? "bg-emerald-500 text-white border-emerald-500"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            }`}
+        {/* Status Filter Dropdown */}
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
           >
-            All
-          </button>
-          <button
-            onClick={() => setStatusFilter("completed")}
-            className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
-              statusFilter === "completed"
-                ? "bg-green-500 text-white border-green-500"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            Completed
-          </button>
-          <button
-            onClick={() => setStatusFilter("pending")}
-            className={`flex-1 px-4 py-3 rounded-lg border font-medium transition-colors ${
-              statusFilter === "pending"
-                ? "bg-yellow-500 text-white border-yellow-500"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            Pending
-          </button>
+            <option value="all">All Statuses</option>
+            <option value="not_started">Not Started</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
         </div>
 
         {/* Difficulty Filter Dropdown */}
@@ -222,6 +221,7 @@ const ShowAllDialogues = () => {
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
           </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
         </div>
       </div>
 
@@ -248,7 +248,7 @@ const ShowAllDialogues = () => {
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Domain
               </th>
-              <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Action
               </th>
             </tr>
@@ -315,7 +315,11 @@ const ShowAllDialogues = () => {
                         dialogue.status,
                       )}`}
                     >
-                      {dialogue.status}
+                      {dialogue.status === "not_started"
+                        ? "Not Started"
+                        : dialogue.status === "in_progress"
+                          ? "In Progress"
+                          : dialogue.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -342,7 +346,7 @@ const ShowAllDialogues = () => {
                       {dialogue.Domain?.title || "Unknown"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     {getPracticeButton(dialogue)}
                   </td>
                 </tr>

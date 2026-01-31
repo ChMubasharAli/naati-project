@@ -10,9 +10,13 @@ const getHeaders = () => ({
 // Start a new exam attempt
 export const startExamAttempt = async (examData) => {
   try {
-    const response = await apiClient.post("/api/v1/exams", examData, {
-      headers: getHeaders(),
-    });
+    const response = await apiClient.post(
+      `/api/v1/exams?new=${examData?.new}`,
+      examData,
+      {
+        headers: getHeaders(),
+      },
+    );
     return response.data;
   } catch (error) {
     const errorMessage =
@@ -34,7 +38,7 @@ export const submitSegment = async (formData) => {
           ...getHeaders(),
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
     return response.data;
   } catch (error) {
@@ -53,7 +57,7 @@ export const getExamResult = async (examAttemptId) => {
       `/api/v1/exams/computeResult/${examAttemptId}`,
       {
         headers: getHeaders(),
-      }
+      },
     );
     return response.data;
   } catch (error) {

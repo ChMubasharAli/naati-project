@@ -222,7 +222,7 @@ const Signup = () => {
                   value={formData.phone}
                   onChange={handleChange}
                   className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                  placeholder="03001234567"
+                  placeholder="+61 4XX XXX XXX"
                   required
                   disabled={registerMutation.isPending}
                 />

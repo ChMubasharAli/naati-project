@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import VerticalVolumeSlider from "./VerticalVolumeSlider";
+import VerticalVolumeSlider from "./VerticalVoulumeSlider";
 
 export default function AudioWaveRecording({
   currentSegment,

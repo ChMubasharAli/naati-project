@@ -917,7 +917,7 @@ const PracticeMockTest = () => {
     setShowFinalSubmitModal(true);
   };
 
-  // Handle final submission
+  // Handle final submission - OPTIMIZED VERSION WITH POLLING
   const handleFinalSubmission = async () => {
     if (!mockTestSessionId) {
       alert("Cannot submit: Session ID missing");
@@ -928,23 +928,79 @@ const PracticeMockTest = () => {
     stopAllTimers();
 
     try {
-      const result = await getMockTestResult(mockTestSessionId, userId);
-      setMockTestResult(result);
+      // Wait 2 seconds to give backend time to process final segments
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Clear localStorage
-      localStorage.removeItem("mockTestSessionData");
-      localStorage.removeItem("mockTestData");
-      localStorage.removeItem("mockTestRecordings");
-      localStorage.removeItem("mockTestAttempts");
-      localStorage.removeItem("mockTestStatus");
-      localStorage.removeItem("currentSegmentIndex");
+      let resultsReceived = false;
+      let pollCount = 0;
+      const maxPollCount = 12; // Total max ~30 seconds (2s + 12*2.5s)
 
-      setShowFinalSubmitModal(false);
-      open();
+      const pollForResults = async () => {
+        pollCount++;
+
+        try {
+          const result = await getMockTestResult(mockTestSessionId, userId);
+
+          // Check if we got a valid result (basic validation)
+          const hasValidResult =
+            result &&
+            (result.data ||
+              result.finalResult ||
+              result.results ||
+              (typeof result === "object" && Object.keys(result).length > 0));
+
+          if (hasValidResult) {
+            // We got valid results!
+            resultsReceived = true;
+            setMockTestResult(result);
+
+            // Clear localStorage (EXACTLY same as before)
+            localStorage.removeItem("mockTestSessionData");
+            localStorage.removeItem("mockTestData");
+            localStorage.removeItem("mockTestRecordings");
+            localStorage.removeItem("mockTestAttempts");
+            localStorage.removeItem("mockTestStatus");
+            localStorage.removeItem("currentSegmentIndex");
+
+            setShowFinalSubmitModal(false);
+            open(); // Open results modal
+            return;
+          }
+        } catch (error) {
+          // Expected error - results not ready yet
+          console.log(`Poll attempt ${pollCount}: Results not ready`);
+        }
+
+        // If results not received and we still have attempts
+        if (!resultsReceived && pollCount < maxPollCount) {
+          // Wait 2.5 seconds before next poll
+          setTimeout(pollForResults, 2500);
+        } else if (!resultsReceived) {
+          // Max attempts reached - show user-friendly message
+          alert(
+            "Results are still being processed. They will be available shortly. You can close this window and check back later in your dashboard.",
+          );
+          setIsSubmittingFinal(false);
+        }
+      };
+
+      // Start the polling
+      pollForResults();
     } catch (error) {
-      console.error("Failed to get result:", error);
-      alert("Failed to get mock test results. Please try again.");
-    } finally {
+      console.error("Failed in final submission:", error);
+
+      // EXACT SAME ERROR HANDLING AS BEFORE
+      if (
+        error.message?.includes("network") ||
+        error.message?.includes("Network")
+      ) {
+        alert("Network error. Please check your connection and try again.");
+      } else if (error.response?.status === 500) {
+        alert("Server error. Please try again in a few moments.");
+      } else {
+        alert("Failed to get mock test results. Please try again.");
+      }
+
       setIsSubmittingFinal(false);
     }
   };
@@ -1531,7 +1587,7 @@ const PracticeMockTest = () => {
               onClick={handlePreviousClick}
               disabled={currentSegmentIndex === 0 || isSubmittingFinal}
               className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                currentSegmentIndex === 0 || isSubmittingFinal
+                currentSegmentIndex === 0 || isSubmittingFinal || isRecording
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-gray-700 hover:text-gray-900 cursor-pointer"
               }`}
@@ -1544,7 +1600,7 @@ const PracticeMockTest = () => {
               {isLastSegment ? (
                 <button
                   onClick={handleFinishClick}
-                  disabled={isSubmittingFinal}
+                  disabled={isSubmittingFinal || isRecording}
                   className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full transition-colors ${
                     isSubmittingFinal
                       ? "bg-gray-400 cursor-not-allowed"
@@ -1557,9 +1613,10 @@ const PracticeMockTest = () => {
               ) : (
                 <button
                   onClick={handleNextClick}
-                  className="flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full bg-[#006b5e] hover:bg-[#005a4f] cursor-pointer"
+                  disabled={isRecording}
+                  className={`${isRecording ? "cursor-not-allowed" : "cursor-pointer"} flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full bg-[#006b5e] hover:bg-[#005a4f] `}
                 >
-                  <span>Next</span>
+                  <span> Next</span>
                   <ArrowRight size={16} className="sm:size-[18px]" />
                 </button>
               )}
@@ -1576,7 +1633,7 @@ const PracticeMockTest = () => {
           size="lg"
           fullScreen={window.innerWidth < 768}
           radius={"lg"}
-          withCloseButton={true}
+          withCloseButton={false}
           centered
           overlayProps={{ blur: 3, opacity: 0.25 }}
         >

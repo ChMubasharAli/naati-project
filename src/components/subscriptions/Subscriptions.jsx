@@ -263,7 +263,7 @@ const Subscriptions = () => {
         </div>
       )}
 
-      <div className="min-h-screen bg-gray-50/50 text-gray-900 antialiased overflow-hidden">
+      <div className="min-h-screen bg-gray-50/50 text-gray-900 antialiased overflow-x-hidden">
         <div className="py-12 md:py-24 px-4 sm:px-6">
           <div className="container mx-auto max-w-7xl">
             {!user && (
