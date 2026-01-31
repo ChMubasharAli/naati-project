@@ -1555,7 +1555,7 @@ const PracticeDialogue = () => {
           size="lg"
           fullScreen={window.innerWidth < 768}
           radius={"lg"}
-          withCloseButton={true}
+          withCloseButton={false}
           centered
           overlayProps={{ blur: 3, opacity: 0.25 }}
         >
@@ -1888,7 +1888,7 @@ const PracticeDialogue = () => {
                 <Button
                   onClick={() => {
                     close();
-                    navigate("/user");
+                    window.location.href = "/user/dialogues";
                   }}
                   color="teal"
                   size={window.innerWidth < 640 ? "sm" : "md"}

@@ -112,9 +112,7 @@ const ShowAllDialogues = () => {
     <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Practice Dialogues
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Rapid Review</h1>
         <p className="text-gray-600">
           Choose a dialogue to practice your NAATI CCL skills
         </p>
