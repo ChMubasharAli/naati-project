@@ -12,6 +12,11 @@ export default function AudioWaveRecording({
   const canvasRef = useRef(null); // Recording wave ke liye canvas
   const animationReqRef = useRef(null);
 
+  // 🔥 FIX: Refs for smooth playback line animation
+  const progressLineRef = useRef(null);
+  const currentProgressRef = useRef(0);
+  const progressAnimationRef = useRef(null);
+
   // 1. Playback Progress Fix - Now using props from parent
   useEffect(() => {
     if (!currentSegment?.audioUrl) return;
@@ -43,6 +48,41 @@ export default function AudioWaveRecording({
       audio.removeEventListener("timeupdate", handleTimeUpdate);
     };
   }, [currentSegment?.audioUrl]);
+
+  // 🔥 FIX: Smooth animation for playback progress line
+  useEffect(() => {
+    if (isRecording || !currentSegment?.audioUrl) {
+      if (progressAnimationRef.current) {
+        cancelAnimationFrame(progressAnimationRef.current);
+      }
+      return;
+    }
+
+    const animate = () => {
+      if (progressLineRef.current) {
+        const target = playbackProgress || 0;
+        const current = currentProgressRef.current;
+
+        // Smooth lerp interpolation (0.15 factor for smooth but responsive movement)
+        const diff = target - current;
+        if (Math.abs(diff) > 0.01) {
+          currentProgressRef.current += diff * 0.15;
+          progressLineRef.current.style.left = `${currentProgressRef.current}%`;
+        }
+      }
+      progressAnimationRef.current = requestAnimationFrame(animate);
+    };
+
+    // Reset current progress when audio changes
+    currentProgressRef.current = playbackProgress || 0;
+    animate();
+
+    return () => {
+      if (progressAnimationRef.current) {
+        cancelAnimationFrame(progressAnimationRef.current);
+      }
+    };
+  }, [playbackProgress, isRecording, currentSegment?.audioUrl]);
 
   // 2. Real-time Waveform (Red Line like Picture)
   useEffect(() => {
@@ -136,10 +176,11 @@ export default function AudioWaveRecording({
 
               {/* Vertical Playback Line - NOW MOVING WITH PARENT PROGRESS */}
               <div
+                ref={progressLineRef} // 🔥 FIX: Added ref for direct DOM manipulation
                 className="absolute top-0 w-px h-full bg-gray-400 z-10"
                 style={{
                   left: `${playbackProgress || 0}%`,
-                  transition: isRecording ? "none" : "left 0.08s linear", // 🚀 Smoother transition
+                  transition: isRecording ? "none" : "none", // 🔥 FIX: Removed CSS transition to prevent conflict with JS animation
                 }}
               ></div>
               <div className="absolute h-full top-0 -right-0.5  z-10">
