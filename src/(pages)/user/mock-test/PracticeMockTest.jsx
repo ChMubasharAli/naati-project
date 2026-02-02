@@ -1074,8 +1074,7 @@ const PracticeMockTest = () => {
         closeOnClickOutside={false}
         onClose={() => navigate("/user/mock-test")}
         title="Mock Test Results"
-        size="lg"
-        fullScreen={window.innerWidth < 768}
+        size="xl"
         radius={"lg"}
         withCloseButton={true}
         centered
@@ -1585,9 +1584,17 @@ const PracticeMockTest = () => {
           <div className="flex justify-end items-center gap-2 sm:gap-4 p-3 sm:p-4 border-t border-gray-100">
             <button
               onClick={handlePreviousClick}
-              disabled={currentSegmentIndex === 0 || isSubmittingFinal}
+              disabled={
+                currentSegmentIndex === 0 ||
+                isSubmittingFinal ||
+                isRecording ||
+                recordingStatus === "playing"
+              }
               className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-md transition-colors ${
-                currentSegmentIndex === 0 || isSubmittingFinal || isRecording
+                currentSegmentIndex === 0 ||
+                isSubmittingFinal ||
+                isRecording ||
+                recordingStatus === "playing"
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-gray-700 hover:text-gray-900 cursor-pointer"
               }`}
@@ -1600,9 +1607,15 @@ const PracticeMockTest = () => {
               {isLastSegment ? (
                 <button
                   onClick={handleFinishClick}
-                  disabled={isSubmittingFinal || isRecording}
+                  disabled={
+                    isSubmittingFinal ||
+                    isRecording ||
+                    recordingStatus === "playing"
+                  }
                   className={`flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full transition-colors ${
-                    isSubmittingFinal
+                    isSubmittingFinal ||
+                    isRecording ||
+                    recordingStatus === "playing"
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-red-600 hover:bg-red-700 cursor-pointer"
                   }`}
@@ -1613,8 +1626,8 @@ const PracticeMockTest = () => {
               ) : (
                 <button
                   onClick={handleNextClick}
-                  disabled={isRecording}
-                  className={`${isRecording ? "cursor-not-allowed" : "cursor-pointer"} flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full bg-[#006b5e] hover:bg-[#005a4f] `}
+                  disabled={isRecording || recordingStatus === "playing"}
+                  className={`${isRecording || recordingStatus === "playing" ? "cursor-not-allowed bg-gray-400 hover:bg-gray-400" : "cursor-pointer"} flex items-center gap-1 sm:gap-2 text-white text-xs sm:text-[14px] font-medium px-4 sm:px-6 py-2 rounded-full bg-[#006b5e] hover:bg-[#005a4f] `}
                 >
                   <span> Next</span>
                   <ArrowRight size={16} className="sm:size-[18px]" />
@@ -1630,7 +1643,7 @@ const PracticeMockTest = () => {
           closeOnClickOutside={false}
           onClose={close}
           title="Mock Test Results"
-          size="lg"
+          size="xl"
           fullScreen={window.innerWidth < 768}
           radius={"lg"}
           withCloseButton={false}

@@ -150,7 +150,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-hidden">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header - Real ID */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -397,7 +397,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
               <button
                 onClick={handlePlay}
                 disabled={!userAudioUrl}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                className={`w-9 h-9 sm:w-10 sm:h-10 cursor-pointer rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
                   userAudioUrl
                     ? "bg-teal-500 text-white hover:bg-teal-600 active:scale-95"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -490,7 +490,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
         <div className="p-4 sm:p-6 border-t border-gray-100 bg-white flex-shrink-0">
           <button
             onClick={onContinue}
-            className="w-full py-2.5 sm:py-3 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-semibold rounded-full transition-colors flex items-center justify-center gap-2 text-sm sm:text-base active:scale-[0.98] transform"
+            className="w-full py-2.5 sm:py-3 cursor-pointer bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-semibold rounded-full transition-colors flex items-center justify-center gap-2 text-sm sm:text-base active:scale-[0.98] transform"
           >
             Next
             <ChevronRight size={18} sm:size={20} />

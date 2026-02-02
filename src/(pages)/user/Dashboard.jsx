@@ -113,7 +113,7 @@ const UserDashboard = () => {
   };
 
   return (
-    <div className="space-y-6 container mx-auto py-2 px-2 flex flex-col ">
+    <div className="space-y-6  p-6 flex flex-col ">
       {/* Welcome Header */}
       <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl shadow-lg border-2 border-emerald-200 p-8">
         <div className="flex items-center justify-between">

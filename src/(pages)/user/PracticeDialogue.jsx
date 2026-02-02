@@ -1552,7 +1552,7 @@ const PracticeDialogue = () => {
           closeOnClickOutside={false}
           onClose={close}
           title="Exam Results"
-          size="lg"
+          size="xl"
           fullScreen={window.innerWidth < 768}
           radius={"lg"}
           withCloseButton={false}

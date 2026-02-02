@@ -87,7 +87,7 @@ const ShowDialogueResultButton = ({
       {/* Show Result Button */}
       <button
         onClick={handleButtonClick}
-        className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
+        className="inline-flex items-center gap-2 px-6 py-2.5 cursor-pointer bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all shadow-md hover:shadow-lg hover:scale-105"
       >
         Show Result
       </button>

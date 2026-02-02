@@ -999,7 +999,7 @@ const PracticeDialogue = () => {
           <div className="flex justify-center gap-4">
             <button
               onClick={() => setShowRepeatConfirm(false)}
-              className="px-8 py-2 rounded-full hover:bg-gray-200"
+              className="px-8 py-2 rounded-full hover:bg-gray-200 cursor-pointer"
             >
               Cancel
             </button>
@@ -1030,13 +1030,13 @@ const PracticeDialogue = () => {
           <div className="space-y-3 mt-6">
             <button
               onClick={handleRecordNewAttempt}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg"
+              className="w-full py-3 bg-blue-600 text-white rounded-lg cursor-pointer"
             >
               Record New Attempt
             </button>
             <button
               onClick={handleSubmitExistingRecording}
-              className="w-full py-3 bg-green-600 text-white rounded-lg"
+              className="w-full py-3 bg-green-600 text-white rounded-lg cursor-pointer"
             >
               Submit Existing
             </button>
@@ -1152,7 +1152,7 @@ const PracticeDialogue = () => {
                                 isAutoRestarting ||
                                 submittedSegments.includes(currentSegment?.id)
                               }
-                              className={`px-6 py-3 rounded-full flex items-center gap-2 ${recordingStatus === "playing" || isEvaluating || timeExpired || isAutoRestarting || submittedSegments.includes(currentSegment?.id) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-[#006b5e] text-white hover:bg-[#005a4f]"}`}
+                              className={`px-6 py-3 rounded-full flex items-center gap-2 cursor-pointer ${recordingStatus === "playing" || isEvaluating || timeExpired || isAutoRestarting || submittedSegments.includes(currentSegment?.id) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-[#006b5e] text-white hover:bg-[#005a4f]"}`}
                             >
                               <span className="font-medium text-lg">Start</span>
                             </button>
@@ -1166,7 +1166,7 @@ const PracticeDialogue = () => {
                               timeExpired ||
                               isAutoRestarting
                             }
-                            className={`px-6 py-3 border-2 border-[#006b5e] text-[#006b5e] rounded-full ${recordingStatus === "playing" || timeExpired || isAutoRestarting ? "opacity-50 cursor-not-allowed" : "hover:bg-[#006b5e] hover:text-white"}`}
+                            className={`px-6 py-3 border-2 border-[#006b5e] cursor-pointer text-[#006b5e] rounded-full ${recordingStatus === "playing" || timeExpired || isAutoRestarting ? "opacity-50 cursor-not-allowed" : "hover:bg-[#006b5e] hover:text-white"}`}
                           >
                             Finish Attempt
                           </button>
@@ -1253,7 +1253,7 @@ const PracticeDialogue = () => {
                   filteredSegments[currentSegmentIndex - 1]?.id,
                 )
               }
-              className={`flex items-center gap-2 px-6 py-2 rounded-md ${currentSegmentIndex === 0 || shouldDisableNavigation ? "text-gray-400 cursor-not-allowed" : "text-[#006b5e] hover:bg-gray-100"}`}
+              className={`flex items-center gap-2 px-6 py-2 rounded-md cursor-pointer ${currentSegmentIndex === 0 || shouldDisableNavigation ? "text-gray-400 cursor-not-allowed" : "text-[#006b5e] hover:bg-gray-100"}`}
             >
               <ArrowLeft size={18} /> Previous
             </button>
@@ -1268,7 +1268,7 @@ const PracticeDialogue = () => {
                     timeExpired ||
                     !submittedSegments.includes(currentSegment?.id)
                   }
-                  className={`flex items-center gap-2 text-white px-6 py-3 rounded-full ${shouldDisableNavigation || !submittedSegments.includes(currentSegment?.id) ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"}`}
+                  className={`flex items-center gap-2 text-white px-6 py-3 cursor-pointer rounded-full ${shouldDisableNavigation || !submittedSegments.includes(currentSegment?.id) ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"}`}
                 >
                   <Flag size={18} /> Finish
                 </button>
@@ -1276,7 +1276,7 @@ const PracticeDialogue = () => {
                 <button
                   onClick={handleNextClick}
                   disabled={!isNextEnabled}
-                  className={`flex items-center gap-2 text-white px-6 py-3 rounded-full ${!isNextEnabled ? "bg-gray-400" : "bg-[#006b5e] hover:bg-[#005a4f]"}`}
+                  className={`flex items-center cursor-pointer gap-2 text-white px-6 py-3 rounded-full ${!isNextEnabled ? "bg-gray-400" : "bg-[#006b5e] hover:bg-[#005a4f]"}`}
                 >
                   Next <ArrowRight size={18} />
                 </button>

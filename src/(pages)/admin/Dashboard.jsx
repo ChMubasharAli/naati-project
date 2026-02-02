@@ -128,7 +128,7 @@ const AdminDashboard = () => {
   const { totals, top } = dashboardData;
 
   return (
-    <div className="space-y-6  p-6 max-h-[calc(100dvh-64px)] lg:max-h-screen h-full overflow-hidden flex flex-col ">
+    <div className="space-y-6  p-6  ">
       {/* Header */}
       {/* <div className="flex items-center gap-2 justify-end">
         {isRefetching && (
@@ -222,9 +222,9 @@ const AdminDashboard = () => {
       </div>
 
       {/* Top Performers Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto rounded-2xl">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6  rounded-2xl">
         {/* Top Used Dialogues */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6  overflow-y-auto">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 max-h-96 h-full overflow-y-auto">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
               <MessageCircle className="w-5 h-5 text-purple-600" />
@@ -233,21 +233,15 @@ const AdminDashboard = () => {
           </div>
           {top.usedDialogues && top.usedDialogues.length > 0 ? (
             <div className="space-y-3">
-              {top.usedDialogues.map((dialogue, index) => (
+              {top.usedDialogues.slice(0, 3).map((dialogue, index) => (
                 <div
                   key={dialogue.dialogueId}
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-purple-300 transition-all"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                      {index + 1}
-                    </div>
                     <div>
                       <div className="text-sm font-semibold text-gray-900">
-                        {dialogue.title}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        ID: {dialogue.dialogueId}
+                        {dialogue.title.slice(0, 30)}...
                       </div>
                     </div>
                   </div>
@@ -268,7 +262,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Top Used Languages */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 overflow-y-auto">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 max-h-96 h-full overflow-y-auto">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
               <Globe className="w-5 h-5 text-orange-600" />
@@ -312,7 +306,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Top Performer Users */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 overflow-y-auto">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 max-h-96 h-full overflow-y-auto">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
               <Award className="w-5 h-5 text-emerald-600" />
@@ -321,7 +315,7 @@ const AdminDashboard = () => {
           </div>
           {top.performerUsers && top.performerUsers.length > 0 ? (
             <div className="space-y-3">
-              {top.performerUsers.map((user, index) => (
+              {top.performerUsers.slice(0, 3).map((user, index) => (
                 <div
                   key={user.userId}
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-emerald-300 transition-all"
