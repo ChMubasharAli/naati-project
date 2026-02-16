@@ -86,7 +86,10 @@ const Signup = () => {
     }
 
     // Execute mutation (axios call)
-    registerMutation.mutate(formData);
+    registerMutation.mutate({
+      ...formData,
+      email: formData.email.toLowerCase(),
+    });
   };
 
   /**

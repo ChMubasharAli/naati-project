@@ -3,425 +3,155 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   User,
   Loader2,
-  Clock,
   CheckCircle,
   ArrowRight,
-  CircleQuestionMark,
-  Loader,
   ArrowLeft,
-  Flag,
   Mic,
   Upload,
+  Play,
+  Clock,
+  AlertCircle,
+  History,
+  ChevronRight,
+  PanelRight,
+  Check,
+  ChevronLeft,
 } from "lucide-react";
-import { FaTriangleExclamation } from "react-icons/fa6";
 import { Modal } from "@mantine/core";
-import { startExamAttempt, submitSegment } from "../../../api/exams";
 import { useAuth } from "../../../context/AuthContext";
-
-import { useQuery, useMutation } from "@tanstack/react-query";
+import axios from "axios";
 import AiResponseModal from "./RapidReviewExamResultModal";
-import RapidReviewPlayAndRecordSection from "../../../components/RapidReviewPlayAndRecordSection";
 
-const TOTAL_EXAM_TIME = 20 * 60; // 20 minutes in seconds
-const AUTO_RESTART_SECONDS = 30; // 30 seconds pehle restart
+const API_BASE_URL = "https://api.prepsmart.au/api/v1";
 
-const PracticeDialogue = () => {
+const RapidReviewDialogues = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user: loggedInUser } = useAuth();
-  const [volume, setVolume] = useState(50);
+  const { user: logedInUser, userLanguage } = useAuth();
 
-  const dialogueId = searchParams.get("dialogueId");
-  const languageName = searchParams.get("language") || "English";
-  const tryAgain = searchParams.get("new");
+  const rapidReviewId = searchParams.get("rapidReviewId");
+  const userId = searchParams.get("userId") || logedInUser?.id;
 
-  const userId = loggedInUser?.id;
-
-  const [examData, setExamData] = useState(null);
+  const [rapidReview, setRapidReview] = useState(null);
   const [segments, setSegments] = useState([]);
-  const [filteredSegments, setFilteredSegments] = useState([]);
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
-  const [examAttemptId, setExamAttemptId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLastSegment, setIsLastSegment] = useState(false);
+  const [isError, setIsError] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingStatus, setRecordingStatus] = useState("idle");
   const [recordedAudios, setRecordedAudios] = useState({});
   const [attemptsCount, setAttemptsCount] = useState({});
   const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [waveHeights, setWaveHeights] = useState([]);
-
-  const [showRepeatConfirm, setShowRepeatConfirm] = useState(false);
-  const [segmentsStatus, setSegmentsStatus] = useState({});
-  const [blinkText, setBlinkText] = useState("");
-  const [recordingStatus, setRecordingStatus] = useState("idle");
-  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [tempAudioBlob, setTempAudioBlob] = useState(null);
+  const [showRecordingCompleted, setShowRecordingCompleted] = useState(false);
 
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
 
-  const [remainingTime, setRemainingTime] = useState(TOTAL_EXAM_TIME);
-  const [completedSeconds, setCompletedSeconds] = useState(0);
-  const [timerActive, setTimerActive] = useState(true);
-  const [timeExpired, setTimeExpired] = useState(false);
-  const [displayTime, setDisplayTime] = useState("20:00");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [attemptsHistory, setAttemptsHistory] = useState([]);
+  const [showAttemptsModal, setShowAttemptsModal] = useState(false);
+  const [isLoadingAttempts, setIsLoadingAttempts] = useState(false);
 
+  const [showRecordingChoiceModal, setShowRecordingChoiceModal] =
+    useState(false);
+  const [showRecordAgainConfirm, setShowRecordAgainConfirm] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [aiResponse, setAiResponse] = useState(null);
   const [showAiPopup, setShowAiPopup] = useState(false);
   const [submittedSegments, setSubmittedSegments] = useState([]);
-  const [showFinishButton, setShowFinishButton] = useState(false);
-  const [showRecordingCompleted, setShowRecordingCompleted] = useState(false);
-  const [tempAudioBlob, setTempAudioBlob] = useState(null);
-  const [showRecordingChoiceModal, setShowRecordingChoiceModal] =
-    useState(false);
 
-  // 🔥 NEW: Auto restart states
-  const [isAutoRestarting, setIsAutoRestarting] = useState(false);
-  const [restartCountdown, setRestartCountdown] = useState(30);
-
-  const isInitializedRef = useRef(false);
-  const initializationInProgressRef = useRef(false);
-  const timerStartedRef = useRef(false);
-  const incrementApiIntervalRef = useRef(null);
-  const animationFrameRefTimer = useRef(null);
-  const startTimeRef = useRef(Date.now());
-  const accumulatedTimeRef = useRef(0);
-  const lastApiCallTimeRef = useRef(Date.now());
-  const originalAudioRef = useRef(null);
+  // Refs for animation
+  const hiddenAudioRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
-  const dataArrayRef = useRef(null);
   const animationFrameRef = useRef(null);
-  const hiddenAudioRef = useRef(null);
-  const restartTimeoutRef = useRef(null);
+  const canvasRef = useRef(null);
+  const progressIntervalRef = useRef(null);
+  const streamRef = useRef(null);
 
-  const currentSegment = filteredSegments[currentSegmentIndex];
-  const currentRecording = currentSegment
-    ? recordedAudios[currentSegment.id]
-    : null;
-  const currentAttempts = currentSegment ? attemptsCount[currentSegment.id] : 1;
+  const currentSegment = segments[currentSegmentIndex];
+  const currentAttempts = currentSegment
+    ? attemptsCount[currentSegment.id] || 0
+    : 0;
+  const hasRecording = tempAudioBlob || recordedAudios[currentSegment?.id];
 
-  const formatTime = useCallback((seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }, []);
-
-  // 🔥 REACT QUERY: API 1 (GET completed seconds)
-  const { data: initialTimeData = 0, isSuccess: isTimeDataSuccess } = useQuery({
-    queryKey: ["dialogueTime", userId, dialogueId, examData?.attempt?.id],
-    queryFn: async () => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}?examAttemptId=${examData?.attempt?.id}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch completed seconds");
-      }
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        return data.data.completedSeconds || 0;
-      }
-      return 0;
-    },
-    enabled: !!userId && !!dialogueId && !!examData?.attempt?.id,
-    staleTime: Infinity,
-    retry: false,
-  });
-
-  // 🔥 REACT QUERY: API 2 (PATCH increment)
-  const incrementMutation = useMutation({
-    mutationFn: async (seconds) => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/v1/dialogueTime/users/${userId}/dialogues/${dialogueId}/increment?examAttemptId=${examData?.attempt?.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({ seconds }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to increment completed seconds");
-      }
-
-      return response.json();
-    },
-    onSuccess: (data, variables) => {
-      if (data.success) {
-        setCompletedSeconds((prev) => prev + variables);
-      }
-    },
-  });
-
-  const handleTimeExpired = useCallback(() => {
-    setTimerActive(false);
-    setTimeExpired(true);
-
-    if (animationFrameRefTimer.current) {
-      cancelAnimationFrame(animationFrameRefTimer.current);
-      animationFrameRefTimer.current = null;
+  const fetchRapidReview = useCallback(async () => {
+    if (!rapidReviewId) {
+      navigate("/user/rapid-review");
+      return;
     }
-
-    if (incrementApiIntervalRef.current) {
-      clearInterval(incrementApiIntervalRef.current);
-      incrementApiIntervalRef.current = null;
-    }
-
-    setDisplayTime("00:00");
-    setRemainingTime(0);
-  }, []);
-
-  // 🔥 NEW: Auto restart function
-  const performAutoRestart = useCallback(async () => {
-    console.log("🔄 Auto-restarting exam due to time limit...");
-    setIsAutoRestarting(true);
 
     try {
-      // Stop current timer
-      if (animationFrameRefTimer.current) {
-        cancelAnimationFrame(animationFrameRefTimer.current);
+      setIsLoading(true);
+      const response = await axios.get(
+        `${API_BASE_URL}/rapid-review/${rapidReviewId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        },
+      );
+
+      if (response.data.success) {
+        const reviewData = response.data.data.rapidReview;
+        setRapidReview(reviewData);
+        setSegments(reviewData.segmentObjects || []);
+
+        const initialAttempts = {};
+        reviewData.segmentObjects.forEach((seg) => {
+          initialAttempts[seg.id] = 0;
+        });
+        setAttemptsCount(initialAttempts);
+
+        await fetchAttemptsHistory();
+      } else {
+        setIsError(true);
       }
-
-      // Reset all states
-      setTimerStartedRef(false);
-      setTimerActive(false);
-      setTimeExpired(false);
-      setCurrentSegmentIndex(0);
-      setSubmittedSegments([]);
-      setRecordedAudios({});
-      setAttemptsCount({});
-      setRestartCountdown(30);
-
-      // Call API with new=true
-      const examDataPayload = {
-        examType: "complete_dialogue",
-        dialogueId: parseInt(dialogueId),
-        userId,
-        new: true, // Force restart
-      };
-
-      const response = await startExamAttempt(examDataPayload);
-      console.log("✅ Auto-restart API success:", response);
-
-      const notDoneSegments = filterSegments(response.segments || []);
-
-      setExamData(response);
-      setSegments(response.segments || []);
-      setFilteredSegments(notDoneSegments);
-      setExamAttemptId(response.attempt.id);
-      setIsLastSegment(notDoneSegments.length === 1);
-      setIsAutoRestarting(false);
-
-      // Reset timer
-      setCompletedSeconds(0);
-      setRemainingTime(TOTAL_EXAM_TIME);
-      setDisplayTime(formatTime(TOTAL_EXAM_TIME));
-
-      // Restart timer
-      setTimerActive(true);
-      startTimeRef.current = Date.now();
-      accumulatedTimeRef.current = 0;
-      lastApiCallTimeRef.current = Date.now();
-
-      // Start smooth timer
-      startSmoothTimer(0);
     } catch (error) {
-      console.error("❌ Auto-restart failed:", error);
-      alert("Failed to restart exam. Please refresh the page.");
-      setIsAutoRestarting(false);
+      console.error("Failed to fetch rapid review:", error);
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
     }
-  }, [dialogueId, userId, formatTime]);
+  }, [rapidReviewId, navigate]);
 
-  const startSmoothTimer = useCallback(
-    (initialCompleted) => {
-      if (animationFrameRefTimer.current) {
-        cancelAnimationFrame(animationFrameRefTimer.current);
+  const fetchAttemptsHistory = async () => {
+    if (!userId) return;
+    try {
+      setIsLoadingAttempts(true);
+      const response = await axios.get(
+        `${API_BASE_URL}/rapid-review/attempts/user/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        },
+      );
+      if (response.data.success) {
+        setAttemptsHistory(response.data.data?.rapidReviews || []);
       }
+    } catch (error) {
+      console.error("Failed to fetch attempts history:", error);
+    } finally {
+      setIsLoadingAttempts(false);
+    }
+  };
 
-      setCompletedSeconds(initialCompleted);
-
-      const initialRemaining = TOTAL_EXAM_TIME - initialCompleted;
-      const initialRemainingValid = initialRemaining > 0 ? initialRemaining : 0;
-
-      setRemainingTime(initialRemainingValid);
-      setDisplayTime(formatTime(initialRemainingValid));
-
-      if (initialRemainingValid <= 0) {
-        setTimeExpired(true);
-        handleTimeExpired();
-        return;
-      }
-
-      setTimerActive(true);
-      setTimeExpired(false);
-      startTimeRef.current = Date.now();
-      accumulatedTimeRef.current = initialCompleted;
-      lastApiCallTimeRef.current = Date.now();
-
-      let lastTimestamp = 0;
-
-      const updateTimer = (timestamp) => {
-        if (!lastTimestamp) lastTimestamp = timestamp;
-
-        const elapsed = Date.now() - startTimeRef.current;
-        const totalElapsedSeconds = accumulatedTimeRef.current + elapsed / 1000;
-        const remaining = Math.max(0, TOTAL_EXAM_TIME - totalElapsedSeconds);
-
-        setDisplayTime(formatTime(remaining));
-
-        if (timestamp - lastTimestamp >= 100) {
-          setRemainingTime(Math.floor(remaining));
-          lastTimestamp = timestamp;
-        }
-
-        const now = Date.now();
-        const secondsSinceLastApiCall =
-          (now - lastApiCallTimeRef.current) / 1000;
-
-        if (secondsSinceLastApiCall >= 10) {
-          const secondsToAdd = Math.floor(secondsSinceLastApiCall);
-          if (secondsToAdd > 0) {
-            incrementMutation.mutate(secondsToAdd);
-            lastApiCallTimeRef.current = now;
-          }
-        }
-
-        // 🔥 NEW: Check for auto-restart condition (30 seconds left and not all done)
-        if (
-          remaining <= AUTO_RESTART_SECONDS &&
-          remaining > 0 &&
-          !isAutoRestarting
-        ) {
-          const allSegmentsDone =
-            filteredSegments.length > 0 &&
-            submittedSegments.length === filteredSegments.length;
-
-          if (!allSegmentsDone && !restartTimeoutRef.current) {
-            console.log(
-              "⏰ 30 seconds left! Starting auto-restart countdown...",
-            );
-            setIsAutoRestarting(true);
-
-            // Countdown display
-            let countdown = 30;
-            const countdownInterval = setInterval(() => {
-              countdown -= 1;
-              setRestartCountdown(countdown);
-              if (countdown <= 0) {
-                clearInterval(countdownInterval);
-              }
-            }, 1000);
-
-            // Perform restart after 30 seconds
-            restartTimeoutRef.current = setTimeout(() => {
-              performAutoRestart();
-              clearInterval(countdownInterval);
-            }, 30000);
-          }
-        }
-
-        if (remaining <= 0) {
-          setTimeExpired(true);
-          handleTimeExpired();
-          return;
-        }
-
-        if (timerActive && !timeExpired && !isAutoRestarting) {
-          animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
-        }
-      };
-
-      animationFrameRefTimer.current = requestAnimationFrame(updateTimer);
-    },
-    [
-      incrementMutation,
-      timerActive,
-      timeExpired,
-      handleTimeExpired,
-      formatTime,
-      filteredSegments,
-      submittedSegments,
-      isAutoRestarting,
-      performAutoRestart,
-    ],
-  );
-
-  const filterSegments = useCallback((segmentsArray) => {
-    return segmentsArray.filter((segment) => !segment.isDone);
-  }, []);
-
-  const submitSegmentAndShowResponse = useCallback(
-    async (segmentId, audioBlob) => {
-      if (!segmentId || !audioBlob || !examAttemptId) {
-        console.error("Missing required data for API call");
-        return null;
-      }
-
-      try {
-        setIsEvaluating(true);
-        const segment = filteredSegments.find((s) => s.id === segmentId);
-
-        if (!segment) {
-          console.error("Segment not found:", segmentId);
-          return null;
-        }
-
-        const formData = new FormData();
-        formData.append("dialogueId", dialogueId);
-        formData.append(
-          "language",
-          examData?.dialogue?.Language?.name || "English",
-        );
-        formData.append("segmentId", segmentId);
-        formData.append("audioTranscript", segment?.textContent || "");
-        formData.append("examAttemptId", examAttemptId);
-        formData.append("audioUrl", segment?.audioUrl || "");
-        formData.append("suggestedAudioUrl", segment?.suggestedAudioUrl || "");
-        formData.append("userId", userId);
-        formData.append("attemptCount", attemptsCount[segmentId] || 0);
-        formData.append("userAudio", audioBlob, "recording.webm");
-
-        const response = await submitSegment(formData);
-        setAiResponse(response);
-        setShowAiPopup(true);
-        return response;
-      } catch (error) {
-        console.error("Failed to submit segment:", error);
-        alert("Submission failed. Please try again.");
-        throw error;
-      } finally {
-        setIsEvaluating(false);
-      }
-    },
-    [
-      dialogueId,
-      examData,
-      examAttemptId,
-      userId,
-      filteredSegments,
-      attemptsCount,
-    ],
-  );
+  useEffect(() => {
+    fetchRapidReview();
+  }, [fetchRapidReview]);
 
   const playOriginalAudioAndAutoRecord = useCallback(() => {
-    if (!currentSegment?.audioUrl || timeExpired || isAutoRestarting) return;
+    if (!currentSegment?.audioUrl) return;
 
     setRecordingStatus("playing");
-    setBlinkText("Playing Source File");
-    setShowFinishButton(true);
+    setIsPlaying(true);
     setPlaybackProgress(0);
+    setCurrentTime(0);
 
     if (hiddenAudioRef.current) {
       hiddenAudioRef.current.pause();
@@ -431,157 +161,264 @@ const PracticeDialogue = () => {
     hiddenAudioRef.current = new Audio(currentSegment.audioUrl);
 
     hiddenAudioRef.current.addEventListener("loadedmetadata", () => {
-      setAudioDuration(hiddenAudioRef.current.duration);
+      const duration = hiddenAudioRef.current.duration;
+      setAudioDuration(duration);
     });
 
     const updateProgress = () => {
-      if (hiddenAudioRef.current && !hiddenAudioRef.current.ended) {
-        const progress =
-          (hiddenAudioRef.current.currentTime /
-            hiddenAudioRef.current.duration) *
-          100;
-        setPlaybackProgress(progress);
-      }
-    };
+      if (hiddenAudioRef.current && !hiddenAudioRef.current.paused) {
+        const current = hiddenAudioRef.current.currentTime;
+        const duration = hiddenAudioRef.current.duration;
 
-    let animationFrameId;
-    const smoothUpdate = () => {
-      updateProgress();
-      if (
-        hiddenAudioRef.current &&
-        !hiddenAudioRef.current.ended &&
-        !hiddenAudioRef.current.paused
-      ) {
-        animationFrameId = requestAnimationFrame(smoothUpdate);
+        if (duration > 0) {
+          const progress = (current / duration) * 100;
+          setPlaybackProgress(progress);
+          setCurrentTime(current);
+        }
       }
     };
 
     hiddenAudioRef.current
       .play()
       .then(() => {
-        animationFrameId = requestAnimationFrame(smoothUpdate);
+        progressIntervalRef.current = setInterval(updateProgress, 100);
+
         hiddenAudioRef.current.onended = () => {
-          cancelAnimationFrame(animationFrameId);
+          clearInterval(progressIntervalRef.current);
           setRecordingStatus("recording");
-          setBlinkText("REC");
+          setIsPlaying(false);
           setPlaybackProgress(100);
+          setCurrentTime(audioDuration);
           startRecording();
-        };
-        hiddenAudioRef.current.onerror = () => {
-          cancelAnimationFrame(animationFrameId);
-          setRecordingStatus("idle");
-          setBlinkText("");
-          setShowFinishButton(false);
-          setPlaybackProgress(0);
-          alert("Failed to play audio.");
         };
       })
       .catch((error) => {
         console.error("Audio play error:", error);
         setRecordingStatus("idle");
-        setBlinkText("");
-        setShowFinishButton(false);
+        setIsPlaying(false);
       });
-  }, [currentSegment, timeExpired, isAutoRestarting]);
+  }, [currentSegment, audioDuration]);
 
-  const handleRecordNewAttempt = useCallback(() => {
-    if (!currentSegment) return;
-    setTempAudioBlob(null);
-    setShowRecordingCompleted(false);
-    setShowRecordingChoiceModal(false);
-    setAttemptsCount((prev) => ({
-      ...prev,
-      [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
-    }));
-    playOriginalAudioAndAutoRecord();
-  }, [currentSegment, playOriginalAudioAndAutoRecord]);
+  // Initialize audio context and analyser
+  const initializeAudio = useCallback(async (stream) => {
+    try {
+      streamRef.current = stream;
 
-  const handleSubmitExistingRecording = useCallback(async () => {
-    if (!currentSegment) {
-      alert("No segment selected");
-      return;
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      }
+
+      const audioContext = audioContextRef.current;
+      const source = audioContext.createMediaStreamSource(stream);
+      analyserRef.current = audioContext.createAnalyser();
+
+      // Configure analyser for better visualization
+      analyserRef.current.fftSize = 2048;
+      analyserRef.current.smoothingTimeConstant = 0.8;
+      analyserRef.current.minDecibels = -90;
+      analyserRef.current.maxDecibels = -10;
+
+      source.connect(analyserRef.current);
+
+      return true;
+    } catch (error) {
+      console.error("Error initializing audio:", error);
+      return false;
     }
-
-    const audioToSubmit = tempAudioBlob || recordedAudios[currentSegment.id];
-    if (!audioToSubmit) {
-      alert("No recording available");
-      return;
-    }
-
-    setShowRecordingChoiceModal(false);
-    setShowRecordingCompleted(false);
-
-    if (tempAudioBlob) {
-      setAttemptsCount((prev) => ({
-        ...prev,
-        [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
-      }));
-    }
-
-    await submitSegmentAndShowResponse(currentSegment.id, audioToSubmit);
-    setTempAudioBlob(null);
-  }, [
-    currentSegment,
-    tempAudioBlob,
-    recordedAudios,
-    submitSegmentAndShowResponse,
-  ]);
-
-  const startAudioAndRecord = useCallback(() => {
-    if (!currentSegment || timeExpired || isAutoRestarting) return;
-    const hasRecording =
-      tempAudioBlob !== null || recordedAudios[currentSegment.id] !== null;
-    if (hasRecording && !showRecordingCompleted) {
-      setShowRecordingChoiceModal(true);
-      return;
-    }
-    playOriginalAudioAndAutoRecord();
-  }, [
-    currentSegment,
-    timeExpired,
-    isAutoRestarting,
-    tempAudioBlob,
-    recordedAudios,
-    showRecordingCompleted,
-    playOriginalAudioAndAutoRecord,
-  ]);
-
-  const initializeAudioAnalyzer = useCallback((stream) => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (
-        window.AudioContext || window.webkitAudioContext
-      )();
-    }
-    const audioContext = audioContextRef.current;
-    const source = audioContext.createMediaStreamSource(stream);
-    analyserRef.current = audioContext.createAnalyser();
-    analyserRef.current.fftSize = 256;
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    dataArrayRef.current = new Uint8Array(bufferLength);
-    source.connect(analyserRef.current);
-    updateWaveHeights();
   }, []);
 
-  const updateWaveHeights = useCallback(() => {
-    if (!analyserRef.current || !isRecording) return;
-    analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-    const average =
-      dataArrayRef.current.reduce((a, b) => a + b) /
-      dataArrayRef.current.length;
-    const newHeights = Array.from({ length: 20 }, (_, i) => {
-      const index = Math.floor(i * (dataArrayRef.current.length / 20));
-      const height = (dataArrayRef.current[index] || average) / 2.55;
-      return Math.min(100, Math.max(10, height));
-    });
-    setWaveHeights(newHeights);
-    animationFrameRef.current = requestAnimationFrame(updateWaveHeights);
-  }, [isRecording]);
+  // Draw static line when not recording
+  const drawStaticLine = useCallback(() => {
+    if (!canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+
+    ctx.fillStyle = "#f9fafb";
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.beginPath();
+    ctx.strokeStyle = "#dc2626";
+    ctx.lineWidth = 2;
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(width, centerY);
+    ctx.stroke();
+  }, []);
+
+  // Active wave animation when recording
+  const startWaveAnimation = useCallback(() => {
+    if (!canvasRef.current || !analyserRef.current) {
+      console.error("Canvas or analyser not available");
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    let time = 0;
+    let animationId;
+
+    const draw = () => {
+      // Continue animation only if recording
+      if (!isRecording) {
+        drawStaticLine();
+        return;
+      }
+
+      animationId = requestAnimationFrame(draw);
+      animationFrameRef.current = animationId;
+
+      // Get frequency data
+      analyserRef.current.getByteFrequencyData(dataArray);
+
+      // Calculate volume (0 to 1)
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / bufferLength;
+      const volume = Math.min(1, Math.max(0, average / 255));
+
+      // Clear canvas
+      ctx.fillStyle = "#f9fafb";
+      ctx.fillRect(0, 0, width, height);
+
+      // Always draw center red line
+      ctx.beginPath();
+      ctx.strokeStyle = "#dc2626";
+      ctx.lineWidth = 2;
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(width, centerY);
+      ctx.stroke();
+
+      // Draw animated waves only when there's sound (volume > threshold)
+      if (volume > 0.02) {
+        const baseAmplitude = 25;
+        const dynamicAmplitude = baseAmplitude + volume * 35;
+
+        // Draw multiple sine waves with different properties
+        const waves = [
+          {
+            color: "#ef4444",
+            amplitude: dynamicAmplitude,
+            frequency: 0.015,
+            speed: 2,
+            yOffset: 0,
+          },
+          {
+            color: "#f87171",
+            amplitude: dynamicAmplitude * 0.6,
+            frequency: 0.025,
+            speed: 1.5,
+            yOffset: 0,
+          },
+          {
+            color: "#fca5a5",
+            amplitude: dynamicAmplitude * 0.3,
+            frequency: 0.035,
+            speed: 2.5,
+            yOffset: 0,
+          },
+        ];
+
+        waves.forEach((wave, index) => {
+          ctx.beginPath();
+          ctx.strokeStyle = wave.color;
+          ctx.lineWidth = index === 0 ? 3 : 2;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+
+          for (let x = 0; x <= width; x += 2) {
+            // Create sine wave with time-based animation
+            const angle = x * wave.frequency + time * wave.speed * 0.1;
+            const y =
+              centerY +
+              Math.sin(angle) * wave.amplitude * Math.min(1, volume * 2);
+
+            if (x === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+
+          ctx.stroke();
+        });
+
+        // Mirror waves (inverted) for symmetrical effect
+        waves.forEach((wave, index) => {
+          ctx.beginPath();
+          ctx.strokeStyle = wave.color;
+          ctx.lineWidth = 1.5;
+          ctx.globalAlpha = 0.5;
+
+          for (let x = 0; x <= width; x += 2) {
+            const angle =
+              x * wave.frequency + time * wave.speed * 0.1 + Math.PI;
+            const y =
+              centerY +
+              Math.sin(angle) * wave.amplitude * Math.min(1, volume * 2);
+
+            if (x === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        });
+      }
+
+      time += 1;
+    };
+
+    // Start the animation loop
+    draw();
+  }, [isRecording, drawStaticLine]);
+
+  // Effect to handle recording state changes
+  useEffect(() => {
+    if (isRecording && analyserRef.current && canvasRef.current) {
+      console.log("Starting wave animation");
+      startWaveAnimation();
+    } else if (!isRecording && canvasRef.current) {
+      console.log("Stopping wave animation, drawing static line");
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      drawStaticLine();
+    }
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isRecording, startWaveAnimation, drawStaticLine]);
 
   const startRecording = useCallback(async () => {
     try {
+      console.log("Starting recording...");
       const audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+        },
       });
+
       const recorder = new MediaRecorder(audioStream, {
         mimeType: "audio/webm;codecs=opus",
       });
@@ -591,10 +428,10 @@ const PracticeDialogue = () => {
         if (e.data.size > 0) chunks.push(e.data);
       };
 
-      recorder.onstop = async () => {
+      recorder.onstop = () => {
+        console.log("Recording stopped");
         setIsRecording(false);
         setRecordingStatus("idle");
-        setBlinkText("");
         const audioBlob = new Blob(chunks, { type: "audio/webm" });
 
         if (currentSegment) {
@@ -603,35 +440,43 @@ const PracticeDialogue = () => {
             ...prev,
             [currentSegment.id]: audioBlob,
           }));
-          setSegmentsStatus((prev) => ({
-            ...prev,
-            [currentSegment.id]: "answered",
-          }));
           setShowRecordingCompleted(true);
-          setShowFinishButton(false);
+
+          setAttemptsCount((prev) => ({
+            ...prev,
+            [currentSegment.id]: (prev[currentSegment.id] || 0) + 1,
+          }));
         }
 
+        // Cleanup
         audioStream.getTracks().forEach((track) => track.stop());
-        if (animationFrameRef.current)
-          cancelAnimationFrame(animationFrameRef.current);
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+        }
         if (audioContextRef.current) {
           audioContextRef.current.close();
           audioContextRef.current = null;
         }
+        analyserRef.current = null;
       };
 
-      recorder.start();
+      // Initialize audio context first
+      const initialized = await initializeAudio(audioStream);
+      if (!initialized) {
+        throw new Error("Failed to initialize audio context");
+      }
+
+      recorder.start(100); // Collect data every 100ms
       setMediaRecorder(recorder);
       setIsRecording(true);
-      initializeAudioAnalyzer(audioStream);
+
+      console.log("Recording started successfully");
     } catch (error) {
       console.error("Recording error:", error);
       setRecordingStatus("idle");
-      setBlinkText("");
-      setShowFinishButton(false);
-      alert("Microphone access denied.");
+      alert("Microphone access denied or error occurred: " + error.message);
     }
-  }, [currentSegment, initializeAudioAnalyzer]);
+  }, [currentSegment, initializeAudio]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorder && isRecording) {
@@ -639,299 +484,171 @@ const PracticeDialogue = () => {
     }
   }, [mediaRecorder, isRecording]);
 
-  const handleFinishAttempt = useCallback(() => {
-    if (!currentSegment || timeExpired || isAutoRestarting) return;
-    if (isRecording) stopRecording();
-    setShowFinishButton(false);
-    setRecordingStatus("idle");
-    setBlinkText("");
-  }, [
-    currentSegment,
-    timeExpired,
-    isAutoRestarting,
-    isRecording,
-    stopRecording,
-  ]);
+  const submitSegment = useCallback(async () => {
+    if (!currentSegment || !tempAudioBlob) return;
 
-  const shouldDisableNavigation =
-    recordingStatus === "playing" ||
-    recordingStatus === "recording" ||
-    isEvaluating ||
-    timeExpired ||
-    isAutoRestarting ||
-    !submittedSegments.includes(currentSegment?.id);
+    try {
+      setIsEvaluating(true);
 
-  const isNextEnabled =
-    currentSegment &&
-    submittedSegments.includes(currentSegment.id) &&
-    !shouldDisableNavigation;
+      const formData = new FormData();
+      formData.append("rapidReviewId", rapidReviewId);
+      formData.append("userId", userId);
+      formData.append("language", userLanguage?.langCode || "en");
+      formData.append("segmentId", currentSegment.id);
+      formData.append("userAudio", tempAudioBlob, "recording.webm");
 
-  const handleNextClick = useCallback(() => {
-    if (timeExpired || !isNextEnabled || isAutoRestarting) return;
-    if (currentSegmentIndex < filteredSegments.length - 1) {
-      setCurrentSegmentIndex((prev) => prev + 1);
-      setRecordingStatus("idle");
-      setBlinkText("");
-      setShowFinishButton(false);
-      setShowRecordingCompleted(false);
-      setTempAudioBlob(null);
-      setPlaybackProgress(0);
-      if (hiddenAudioRef.current) {
-        hiddenAudioRef.current.pause();
-        hiddenAudioRef.current = null;
-      }
+      const response = await axios.post(
+        `${API_BASE_URL}/mocktest/rapid-review/ai`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        },
+      );
+
+      setAiResponse(response.data);
+      setShowAiPopup(true);
+      setSubmittedSegments((prev) => [...prev, currentSegment.id]);
+
+      await fetchAttemptsHistory();
+    } catch (error) {
+      console.error("Submission failed:", error);
+      alert("Failed to submit. Please try again.");
+    } finally {
+      setIsEvaluating(false);
     }
-  }, [
-    timeExpired,
-    isNextEnabled,
-    isAutoRestarting,
-    currentSegmentIndex,
-    filteredSegments.length,
-  ]);
+  }, [currentSegment, tempAudioBlob, rapidReviewId, userId, userLanguage]);
 
-  const handlePreviousClick = useCallback(() => {
-    if (timeExpired || isAutoRestarting) return;
-    const previousSegment = filteredSegments[currentSegmentIndex - 1];
-    if (previousSegment && submittedSegments.includes(previousSegment.id)) {
-      setCurrentSegmentIndex((prev) => prev - 1);
-      setRecordingStatus("idle");
-      setBlinkText("");
-      setShowFinishButton(false);
-      setShowRecordingCompleted(false);
-      setTempAudioBlob(null);
-      setPlaybackProgress(0);
-      if (hiddenAudioRef.current) {
-        hiddenAudioRef.current.pause();
-        hiddenAudioRef.current = null;
-      }
-    }
-  }, [
-    timeExpired,
-    isAutoRestarting,
-    currentSegmentIndex,
-    filteredSegments,
-    submittedSegments,
-  ]);
-
-  const handleFinishClick = useCallback(() => {
-    if (timeExpired || isAutoRestarting) return;
-    if (currentSegment && !submittedSegments.includes(currentSegment.id)) {
-      alert("Please complete the current segment before finishing.");
+  const handleStart = useCallback(() => {
+    if (hasRecording && !showRecordingCompleted) {
+      setShowRecordingChoiceModal(true);
       return;
     }
-    alert("✅ Exam Completed Successfully!");
-    setTimeout(() => navigate("/user"), 1500);
-  }, [
-    currentSegment,
-    timeExpired,
-    isAutoRestarting,
-    submittedSegments,
-    navigate,
-  ]);
+    playOriginalAudioAndAutoRecord();
+  }, [hasRecording, showRecordingCompleted, playOriginalAudioAndAutoRecord]);
 
-  const handleAiPopupContinue = useCallback(() => {
-    if (currentSegment) {
-      setSubmittedSegments((prev) => [...prev, currentSegment.id]);
-    }
-    setShowAiPopup(false);
-    setAiResponse(null);
-    if (currentSegmentIndex === filteredSegments.length - 1) {
-      setTimeout(() => {
-        alert("✅ Exam Completed Successfully!");
-        navigate("/user");
-      }, 500);
-    }
-  }, [currentSegment, currentSegmentIndex, filteredSegments.length, navigate]);
+  const handleRecordAgainClick = useCallback(() => {
+    setShowRecordAgainConfirm(true);
+  }, []);
 
-  const handleRepeatConfirm = useCallback(() => {
-    setShowRepeatConfirm(false);
+  const confirmRecordAgain = useCallback(() => {
+    setShowRecordAgainConfirm(false);
+    setTempAudioBlob(null);
+    setShowRecordingCompleted(false);
     playOriginalAudioAndAutoRecord();
   }, [playOriginalAudioAndAutoRecord]);
 
-  useEffect(() => {
-    if (
-      isTimeDataSuccess &&
-      !timerStartedRef.current &&
-      examData?.attempt?.id
-    ) {
-      timerStartedRef.current = true;
-      startSmoothTimer(initialTimeData);
+  const cancelRecordAgain = useCallback(() => {
+    setShowRecordAgainConfirm(false);
+  }, []);
+
+  const handleRecordNewAttempt = useCallback(() => {
+    setShowRecordingChoiceModal(false);
+    handleRecordAgainClick();
+  }, [handleRecordAgainClick]);
+
+  const handleSubmitExisting = useCallback(async () => {
+    setShowRecordingChoiceModal(false);
+    await submitSegment();
+  }, [submitSegment]);
+
+  const handleNext = useCallback(() => {
+    if (currentSegmentIndex < segments.length - 1) {
+      setCurrentSegmentIndex((prev) => prev + 1);
+      resetSegmentState();
     }
-  }, [
-    isTimeDataSuccess,
-    initialTimeData,
-    examData?.attempt?.id,
-    startSmoothTimer,
-  ]);
+  }, [currentSegmentIndex, segments.length]);
 
-  useEffect(() => {
-    timerStartedRef.current = false;
-  }, [examData?.attempt?.id]);
-
-  useEffect(() => {
-    const heights = Array.from({ length: 20 }, () => Math.random() * 100);
-    setWaveHeights(heights);
+  const handlePrevious = useCallback(() => {
+    if (currentSegmentIndex > 0) {
+      setCurrentSegmentIndex((prev) => prev - 1);
+      resetSegmentState();
+    }
   }, [currentSegmentIndex]);
 
-  // Cleanup restart timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
-    };
+  const handleSegmentClick = useCallback((index) => {
+    setCurrentSegmentIndex(index);
+    resetSegmentState();
+    setSidebarOpen(false);
   }, []);
 
-  const initializeExam = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      let examDataPayload = {
-        examType: "complete_dialogue",
-        dialogueId: parseInt(dialogueId),
-        userId,
-        new: tryAgain === "true" || false,
-      };
-
-      let response = await startExamAttempt(examDataPayload);
-
-      // Check if all segments completed
-      const allSegmentsDone =
-        response.segments?.length > 0 &&
-        response.segments.every((segment) => segment.isDone === true);
-
-      if (allSegmentsDone) {
-        examDataPayload = { ...examDataPayload, new: true };
-        response = await startExamAttempt(examDataPayload);
-      }
-
-      const notDoneSegments = filterSegments(response.segments || []);
-
-      setExamData(response);
-      setSegments(response.segments || []);
-      setFilteredSegments(notDoneSegments);
-      setExamAttemptId(response.attempt.id);
-
-      const initialRecordings = {};
-      const initialAttempts = {};
-      const initialStatus = {};
-      notDoneSegments.forEach((segment) => {
-        initialRecordings[segment.id] = null;
-        initialAttempts[segment.id] = 0;
-        initialStatus[segment.id] = "not_answered";
-      });
-
-      setRecordedAudios(initialRecordings);
-      setAttemptsCount(initialAttempts);
-      setSegmentsStatus(initialStatus);
-      setIsLastSegment(notDoneSegments.length === 1);
-
-      localStorage.setItem(
-        "examData",
-        JSON.stringify({ ...response, filteredSegments: notDoneSegments }),
-      );
-
-      isInitializedRef.current = true;
-    } catch (error) {
-      console.error("Failed to initialize exam:", error);
-      alert("Failed to start exam. Please try again.");
-      navigate("/user/mock-test");
-    } finally {
-      setIsLoading(false);
-      initializationInProgressRef.current = false;
+  const resetSegmentState = useCallback(() => {
+    setRecordingStatus("idle");
+    setIsRecording(false);
+    setIsPlaying(false);
+    setPlaybackProgress(0);
+    setCurrentTime(0);
+    setShowRecordingCompleted(false);
+    setTempAudioBlob(null);
+    setShowRecordingChoiceModal(false);
+    setShowRecordAgainConfirm(false);
+    if (hiddenAudioRef.current) {
+      hiddenAudioRef.current.pause();
+      hiddenAudioRef.current = null;
     }
-  }, [dialogueId, userId, tryAgain, navigate, filterSegments]);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+  }, []);
 
+  const handleAiPopupContinue = useCallback(() => {
+    setShowAiPopup(false);
+    setAiResponse(null);
+    if (currentSegmentIndex === segments.length - 1) {
+      setTimeout(() => {
+        navigate("/user/rapid-review");
+      }, 500);
+    }
+  }, [currentSegmentIndex, segments.length, navigate]);
+
+  const formatTime = (time) => {
+    if (!time || isNaN(time)) return "00:00";
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60)
+      .toString()
+      .padStart(2, "0");
+    return `${mins}:${secs}`;
+  };
+
+  // Initialize canvas with static line on mount
   useEffect(() => {
-    if (!dialogueId || !userId) {
-      navigate("/user/mock-test");
-      return;
-    }
-    if (isInitializedRef.current || initializationInProgressRef.current) return;
-
-    initializationInProgressRef.current = true;
-    initializeExam();
+    drawStaticLine();
 
     return () => {
-      if (animationFrameRefTimer.current) {
-        cancelAnimationFrame(animationFrameRefTimer.current);
-      }
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
+      if (progressIntervalRef.current)
+        clearInterval(progressIntervalRef.current);
       if (audioContextRef.current) audioContextRef.current.close();
-      if (hiddenAudioRef.current) {
-        hiddenAudioRef.current.pause();
-        hiddenAudioRef.current = null;
+      if (hiddenAudioRef.current) hiddenAudioRef.current.pause();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [dialogueId, userId, navigate, initializeExam]);
-
-  useEffect(() => {
-    if (filteredSegments.length > 0) {
-      setIsLastSegment(currentSegmentIndex === filteredSegments.length - 1);
-    }
-  }, [currentSegmentIndex, filteredSegments]);
-
-  useEffect(() => {
-    const savedExamData = localStorage.getItem("examData");
-    if (savedExamData) {
-      const parsedData = JSON.parse(savedExamData);
-      setExamData(parsedData);
-      setSegments(parsedData.segments || []);
-      setFilteredSegments(
-        parsedData.filteredSegments ||
-          parsedData.segments?.filter((s) => !s.isDone) ||
-          [],
-      );
-      setExamAttemptId(parsedData.attempt.id);
-
-      const initialRecordings = {};
-      const initialAttempts = {};
-      const initialStatus = {};
-      const filteredSegmentsData =
-        parsedData.filteredSegments ||
-        parsedData.segments?.filter((s) => !s.isDone) ||
-        [];
-
-      filteredSegmentsData.forEach((segment) => {
-        initialRecordings[segment.id] = null;
-        initialAttempts[segment.id] = 0;
-        initialStatus[segment.id] = "not_answered";
-      });
-
-      setRecordedAudios(initialRecordings);
-      setAttemptsCount(initialAttempts);
-      setSegmentsStatus(initialStatus);
-      isInitializedRef.current = true;
-    }
-  }, []);
-
-  const waveAnimationCSS = `
-    @keyframes waveAnimation {
-      0% { height: 30%; }
-      100% { height: 100%; }
-    }
-    @keyframes blink {
-      0% { opacity: 1; }
-      50% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
-  `;
+  }, [drawStaticLine]);
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-4">
+      <div className="flex flex-col items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-4" />
-        <p className="text-gray-600">Loading exam...</p>
+        <p className="text-gray-600">Loading rapid review...</p>
       </div>
     );
   }
 
-  if (!examData || filteredSegments.length === 0) {
+  if (isError || !rapidReview) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <p className="text-gray-600 text-center">No segments available</p>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-gray-600 mb-4">Failed to load rapid review</p>
         <button
-          onClick={() => navigate("/user/mock-test")}
-          className="mt-4 px-6 py-2 bg-emerald-500 text-white rounded-lg"
+          onClick={() => navigate("/user/rapid-review")}
+          className="px-6 py-2 bg-emerald-600 text-white rounded-lg cursor-pointer hover:bg-emerald-700"
         >
           Go Back
         </button>
@@ -940,79 +657,356 @@ const PracticeDialogue = () => {
   }
 
   return (
-    <>
-      <style>{waveAnimationCSS}</style>
-
-      {/* 🔥 NEW: Auto Restart Loading Modal */}
-      {isAutoRestarting && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md text-center">
-            <Loader2 className="w-16 h-16 text-red-600 animate-spin mx-auto mb-6" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">
-              Time Almost Up!
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Restarting exam in{" "}
-              <span className="font-bold text-red-600 text-2xl">
-                {restartCountdown}
-              </span>{" "}
-              seconds...
-            </p>
-            <p className="text-sm text-gray-500">
-              Please wait while we prepare a new attempt for you.
-            </p>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Rapid Review Practice
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="bg-emerald-100 p-2 rounded-full">
+                <User size={16} className="text-emerald-600" />
+              </div>
+              <span className="hidden sm:inline">
+                {logedInUser?.email || "User"}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        </header>
 
-      {/* AI Response Modal - External Component */}
-      <AiResponseModal
-        open={showAiPopup}
-        data={aiResponse}
-        onContinue={handleAiPopupContinue}
-      />
-
-      {/* Evaluation Loading Modal */}
-      {isEvaluating && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md text-center">
-            <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              AI Evaluation in Progress
-            </h3>
-            <p className="text-gray-600">Analyzing your pronunciation...</p>
+        {/* Right Side Slider Button */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-emerald-500 shadow-lg border border-gray-200 rounded-l-xl px-1 py-4 hover:bg-emerald-600 transition-all duration-300 group cursor-pointer"
+        >
+          <ChevronLeft size={24} className="text-white  h-16 " />
+          <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white text-xs  py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            Show Segments
           </div>
-        </div>
-      )}
+        </button>
 
-      <Modal
-        opened={showRepeatConfirm}
-        onClose={() => setShowRepeatConfirm(false)}
-        centered
-        size="sm"
+        {/* Main Practice Area */}
+        <main className="flex-1 overflow-y-auto flex items-center p-6">
+          <div className="max-w-3xl mx-auto">
+            {/* Segment Info */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <p className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium w-fit">
+                  Attempts:{" "}
+                  <span className="font-semibold">{currentAttempts}</span>
+                </p>
+                {submittedSegments.includes(currentSegment?.id) && (
+                  <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                    <CheckCircle size={14} /> Submitted
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Audio Player Section */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+                  {isPlaying ? (
+                    <div className="flex gap-1">
+                      <div className="w-1 h-4 bg-white animate-pulse"></div>
+                      <div className="w-1 h-4 bg-white animate-pulse delay-75"></div>
+                    </div>
+                  ) : (
+                    <Play size={20} fill="currentColor" />
+                  )}
+                </div>
+
+                <div className="flex-1">
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-100 ease-linear"
+                      style={{ width: `${playbackProgress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1 text-xs text-gray-500">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(audioDuration)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recording Waveform with Sine Waves */}
+              <div className="relative h-24 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                <canvas
+                  ref={canvasRef}
+                  width={800}
+                  height={96}
+                  className="w-full h-full block"
+                  style={{ display: "block" }}
+                />
+                {isRecording && (
+                  <div className="absolute top-2 right-2 flex items-center gap-2 bg-red-100 px-3 py-1 rounded-full">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-red-600">
+                      REC
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-wrap items-center gap-4">
+              {!showRecordingCompleted && (
+                <button
+                  onClick={handleStart}
+                  disabled={
+                    recordingStatus === "playing" ||
+                    isRecording ||
+                    submittedSegments.includes(currentSegment?.id)
+                  }
+                  className={`px-6 py-3 rounded-full font-medium flex items-center gap-2 cursor-pointer ${
+                    recordingStatus === "playing" ||
+                    isRecording ||
+                    submittedSegments.includes(currentSegment?.id)
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700"
+                  }`}
+                >
+                  {recordingStatus === "playing" ? (
+                    <>
+                      <Clock size={18} className="animate-spin" /> Playing...
+                    </>
+                  ) : isRecording ? (
+                    <>
+                      <Mic size={18} /> Recording...
+                    </>
+                  ) : (
+                    <>
+                      <Play size={18} /> Start
+                    </>
+                  )}
+                </button>
+              )}
+
+              {isRecording && (
+                <button
+                  onClick={stopRecording}
+                  className="px-6 py-3 rounded-full font-medium bg-red-600 text-white hover:bg-red-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  Stop Recording
+                </button>
+              )}
+
+              {showRecordingCompleted && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleRecordAgainClick}
+                    className="px-6 py-3 rounded-full font-medium bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Mic size={18} /> Record Again
+                  </button>
+                  <button
+                    onClick={handleSubmitExisting}
+                    className="px-6 py-3 rounded-full font-medium bg-green-600 text-white hover:bg-green-700 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Upload size={18} /> Submit
+                  </button>
+                </div>
+              )}
+
+              {submittedSegments.includes(currentSegment?.id) && (
+                <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
+                  <CheckCircle size={20} />
+                  <span className="font-medium">Submitted successfully!</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
+
+        {/* Footer Navigation - My Attempts Left, Previous/Next Right */}
+        <footer className="bg-white border-t border-gray-200 px-6 py-4">
+          <div className="flex justify-between items-center max-w-3xl mx-auto">
+            {/* Left Side - My Attempts Button */}
+            <button
+              onClick={() => setShowAttemptsModal(true)}
+              className="flex items-center rounded-lg gap-2 px-4 py-2 bg-emerald-500 text-white hover:bg-emerald-600  cursor-pointer"
+            >
+              <History size={18} />
+              <span className="hidden sm:inline">Previous Attempts</span>
+            </button>
+
+            {/* Right Side - Previous and Next Together */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrevious}
+                disabled={currentSegmentIndex === 0}
+                className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium cursor-pointer ${
+                  currentSegmentIndex === 0
+                    ? "text-gray-300 cursor-not-allowed"
+                    : "text-gray-700 hover:bg-gray-100 border border-gray-300"
+                }`}
+              >
+                <ArrowLeft size={18} /> Previous
+              </button>
+
+              <button
+                onClick={handleNext}
+                disabled={currentSegmentIndex === segments.length - 1}
+                className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium cursor-pointer ${
+                  currentSegmentIndex === segments.length - 1
+                    ? "text-gray-300 cursor-not-allowed"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                }`}
+              >
+                Next <ArrowRight size={18} />
+              </button>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      {/* Right Sidebar */}
+      <div
+        className={`fixed inset-y-0 right-0 w-80 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-40 ${
+          sidebarOpen ? "translate-x-0" : "translate-x-full"
+        }`}
       >
-        <div className="space-y-12 text-center p-6">
-          <div className="bg-gray-100 h-32 w-32 rounded-full mx-auto flex items-center justify-center">
-            <FaTriangleExclamation size={56} className="text-orange-300" />
-          </div>
-          <p className="text-gray-500 text-2xl">Repeat the segment?</p>
-          <div className="flex justify-center gap-4">
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 className="font-bold text-gray-800">Segments</h2>
             <button
-              onClick={() => setShowRepeatConfirm(false)}
-              className="px-8 py-2 rounded-full hover:bg-gray-200 cursor-pointer"
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer"
             >
-              Cancel
-            </button>
-            <button
-              className="bg-[#006b5e] text-white px-8 py-2 rounded-full"
-              onClick={handleRepeatConfirm}
-            >
-              OK
+              <ChevronRight size={20} className="text-gray-600" />
             </button>
           </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {segments.map((segment, index) => (
+              <button
+                key={segment.id}
+                onClick={() => handleSegmentClick(index)}
+                className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
+                  currentSegmentIndex === index
+                    ? "bg-emerald-50 border-l-4 border-l-emerald-500"
+                    : ""
+                } ${submittedSegments.includes(segment.id) ? "opacity-75" : ""}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`text-xs font-medium px-2 py-1 rounded ${
+                      submittedSegments.includes(segment.id)
+                        ? "bg-green-100 text-green-700"
+                        : currentSegmentIndex === index
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="flex-1 flex items-center gap-2  justify-between min-w-0">
+                    <p className="text-sm font-medium text-gray-700 truncate">
+                      {/* {segment.textContent?.substring(0, 40)}... */}
+                      Segment
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {submittedSegments.includes(segment.id)
+                        ? "✓ Completed"
+                        : "Pending"}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 z-30 cursor-pointer"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Attempts History Modal */}
+      <Modal
+        opened={showAttemptsModal}
+        onClose={() => setShowAttemptsModal(false)}
+        centered
+        size="lg"
+        title="My Completed Attempts"
+      >
+        <div className="max-h-96 overflow-y-auto">
+          {isLoadingAttempts ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+            </div>
+          ) : attemptsHistory.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <History size={48} className="mx-auto mb-4 text-gray-300" />
+              <p>No previous attempts found</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {attemptsHistory.map((attempt, index) => {
+                const doneSegmentIds = attempt.progress?.doneSegmentIds || [];
+                const completedSegments =
+                  attempt.segments?.filter((seg) =>
+                    doneSegmentIds.includes(seg.id),
+                  ) || [];
+
+                if (completedSegments.length === 0) return null;
+
+                return (
+                  <div
+                    key={index}
+                    className="bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="p-4 border-b border-gray-200 bg-gray-100">
+                      <span className="font-semibold text-gray-800">
+                        {attempt.rapidReview?.title || `Attempt ${index + 1}`}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-2">
+                        ({completedSegments.length} completed)
+                      </span>
+                    </div>
+
+                    <div className="divide-y divide-gray-100">
+                      {completedSegments.map((segment) => (
+                        <div
+                          key={segment.id}
+                          className="p-4 flex items-start gap-3"
+                        >
+                          <div className="mt-1">
+                            <Check size={16} className="text-green-500" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-700 leading-relaxed">
+                              {segment.textContent}
+                            </p>
+                            <span className="inline-flex items-center mt-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                              Completed
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </Modal>
 
+      {/* Recording Choice Modal */}
       <Modal
         opened={showRecordingChoiceModal}
         onClose={() => setShowRecordingChoiceModal(false)}
@@ -1021,28 +1015,29 @@ const PracticeDialogue = () => {
         withCloseButton={false}
       >
         <div className="text-center p-6">
-          <div className="bg-blue-100 w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center">
-            <Mic className="w-10 h-10 text-blue-600" />
+          <div className="bg-blue-100 w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <Mic className="w-8 h-8 text-blue-600" />
           </div>
-          <h3 className="text-xl font-bold mb-2">
-            You already have a recording
-          </h3>
-          <div className="space-y-3 mt-6">
+          <h3 className="text-lg font-bold mb-2">Recording Exists</h3>
+          <p className="text-gray-500 mb-6">
+            You already have a recording for this segment.
+          </p>
+          <div className="space-y-3">
             <button
               onClick={handleRecordNewAttempt}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg cursor-pointer"
+              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
             >
               Record New Attempt
             </button>
             <button
-              onClick={handleSubmitExistingRecording}
-              className="w-full py-3 bg-green-600 text-white rounded-lg cursor-pointer"
+              onClick={handleSubmitExisting}
+              className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer"
             >
-              Submit Existing
+              Submit Existing Recording
             </button>
             <button
               onClick={() => setShowRecordingChoiceModal(false)}
-              className="w-full py-3 bg-gray-200 rounded-lg"
+              className="w-full py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 cursor-pointer"
             >
               Cancel
             </button>
@@ -1050,243 +1045,63 @@ const PracticeDialogue = () => {
         </div>
       </Modal>
 
-      <div className="flex flex-col w-full h-full overflow-hidden">
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-2 border-b-3 border-[#006b5e]">
-          <div className="text-lg sm:text-xl font-bold text-[#006b5e]">
-            Rapid Review
+      {/* Record Again Confirmation Modal */}
+      <Modal
+        opened={showRecordAgainConfirm}
+        onClose={cancelRecordAgain}
+        centered
+        size="sm"
+        withCloseButton={false}
+      >
+        <div className="text-center p-6">
+          <div className="bg-amber-100 w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-amber-600" />
           </div>
-          <div className="flex items-center text-xs text-gray-600">
-            <div className="bg-[#006b5e] p-1 rounded-full text-white mr-2">
-              <User size={12} />
-            </div>
-            <span className="truncate max-w-[150px]">
-              {loggedInUser?.email || "User"}
-            </span>
-          </div>
-        </header>
-
-        <div className="flex flex-col text-sm sm:flex-row items-start sm:items-center justify-between px-4 py-3 border-b border-gray-300">
-          <div className="font-semibold">CCL Practice - {languageName}</div>
-          <div className="flex items-center gap-4">
-            <div
-              className={`text-sm font-semibold ${remainingTime < 60 ? "text-red-600" : "text-gray-700"}`}
-            >
-              ⏱️ Time: {displayTime}
-            </div>
-            <div className="flex items-center gap-2">
-              <span>
-                {currentSegmentIndex + 1}/{filteredSegments.length}
-              </span>
-              <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#006b5e] opacity-30"
-                  style={{
-                    width: `${((currentSegmentIndex + 1) / filteredSegments.length) * 100}%`,
-                  }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-3 border-b border-gray-300">
-          <span className="font-semibold">
-            Segment - {currentSegmentIndex + 1}
-          </span>
-        </div>
-
-        <main className="grow px-4 sm:px-10 py-8 flex-1 overflow-y-scroll">
-          <div className="flex justify-center">
-            <div className="w-full max-w-3xl">
-              {remainingTime < 60 && !isLastSegment && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                  <p className="text-red-600 font-semibold flex items-center gap-2">
-                    <Clock size={16} />
-                    Warning: Only {displayTime} remaining!
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-8">
-                {isLastSegment && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-center">
-                    <h2 className="text-xl font-bold text-emerald-600">
-                      🎉 Last Segment!
-                    </h2>
-                  </div>
-                )}
-
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  {currentSegment?.audioUrl && (
-                    <audio
-                      ref={originalAudioRef}
-                      src={currentSegment.audioUrl}
-                      style={{ display: "none" }}
-                    />
-                  )}
-                  <RapidReviewPlayAndRecordSection
-                    currentSegment={currentSegment}
-                    isRecording={isRecording}
-                    playbackProgress={playbackProgress}
-                    audioDuration={audioDuration}
-                    isPlaying={recordingStatus === "playing"}
-                  />
-
-                  <div className="space-y-6 mt-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="text-gray-700">
-                          <span className="font-medium">Attempts:</span>{" "}
-                          {currentAttempts}
-                        </div>
-
-                        {!showFinishButton &&
-                          !isRecording &&
-                          !showRecordingCompleted && (
-                            <button
-                              onClick={startAudioAndRecord}
-                              disabled={
-                                recordingStatus === "playing" ||
-                                isEvaluating ||
-                                timeExpired ||
-                                isAutoRestarting ||
-                                submittedSegments.includes(currentSegment?.id)
-                              }
-                              className={`px-6 py-3 rounded-full flex items-center gap-2 cursor-pointer ${recordingStatus === "playing" || isEvaluating || timeExpired || isAutoRestarting || submittedSegments.includes(currentSegment?.id) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-[#006b5e] text-white hover:bg-[#005a4f]"}`}
-                            >
-                              <span className="font-medium text-lg">Start</span>
-                            </button>
-                          )}
-
-                        {showFinishButton && isRecording && (
-                          <button
-                            onClick={handleFinishAttempt}
-                            disabled={
-                              recordingStatus === "playing" ||
-                              timeExpired ||
-                              isAutoRestarting
-                            }
-                            className={`px-6 py-3 border-2 border-[#006b5e] cursor-pointer text-[#006b5e] rounded-full ${recordingStatus === "playing" || timeExpired || isAutoRestarting ? "opacity-50 cursor-not-allowed" : "hover:bg-[#006b5e] hover:text-white"}`}
-                          >
-                            Finish Attempt
-                          </button>
-                        )}
-
-                        {showRecordingCompleted && tempAudioBlob && (
-                          <div className="flex gap-3">
-                            <button
-                              onClick={handleRecordNewAttempt}
-                              className="px-6 py-3 cursor-pointer bg-[#006b5e] text-white hover:bg-[#005a4f] text-white rounded-full flex items-center gap-2"
-                            >
-                              <Mic size={20} /> Start
-                            </button>
-                            <button
-                              onClick={handleSubmitExistingRecording}
-                              className="px-6 py-3 cursor-pointer bg-green-600 text-white rounded-full flex items-center gap-2"
-                            >
-                              <Upload size={20} /> Submit
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 animate-pulse">
-                        {blinkText && recordingStatus === "playing" && (
-                          <div className="text-center border border-slate-900 py-2 px-4 rounded-lg">
-                            <p className="text-sm text-slate-900 flex items-center gap-2">
-                              <Loader size={16} className="animate-spin" />
-                              {blinkText}
-                            </p>
-                          </div>
-                        )}
-                        {blinkText && recordingStatus === "recording" && (
-                          <div className="text-center border border-red-500 py-2 px-4 rounded-lg">
-                            <p className="text-sm font-medium text-red-600 flex items-center gap-2">
-                              <span className="h-3 w-3 rounded-full bg-red-500 inline-block"></span>
-                              {blinkText}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {submittedSegments.includes(currentSegment?.id) && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle className="w-6 h-6 text-green-600" />
-                          <div>
-                            <p className="font-semibold text-green-800">
-                              Segment Submitted!
-                            </p>
-                            <p className="text-green-600 text-sm">
-                              Click "Next" to continue
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-
-        <footer className="w-full mt-auto">
-          <div className="flex w-full h-1.5 gap-0.5">
-            {filteredSegments.map((segment, i) => (
-              <div
-                key={i}
-                className={`grow border-r border-white last:border-0 ${submittedSegments.includes(segment.id) ? "bg-emerald-500" : i === currentSegmentIndex ? "bg-[#3db39e]" : "bg-gray-200"}`}
-              ></div>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center p-4 border-t border-gray-100">
+          <h3 className="text-lg font-bold mb-2">Record Again?</h3>
+          <p className="text-gray-500 mb-6">
+            Are you sure you want to record again? Your current recording will
+            be replaced.
+          </p>
+          <div className="flex gap-3">
             <button
-              onClick={handlePreviousClick}
-              disabled={
-                currentSegmentIndex === 0 ||
-                shouldDisableNavigation ||
-                isEvaluating ||
-                !submittedSegments.includes(
-                  filteredSegments[currentSegmentIndex - 1]?.id,
-                )
-              }
-              className={`flex items-center gap-2 px-6 py-2 rounded-md cursor-pointer ${currentSegmentIndex === 0 || shouldDisableNavigation ? "text-gray-400 cursor-not-allowed" : "text-[#006b5e] hover:bg-gray-100"}`}
+              onClick={cancelRecordAgain}
+              className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 cursor-pointer"
             >
-              <ArrowLeft size={18} /> Previous
+              No, Cancel
             </button>
-
-            <div>
-              {isLastSegment ? (
-                <button
-                  onClick={handleFinishClick}
-                  disabled={
-                    shouldDisableNavigation ||
-                    isEvaluating ||
-                    timeExpired ||
-                    !submittedSegments.includes(currentSegment?.id)
-                  }
-                  className={`flex items-center gap-2 text-white px-6 py-3 cursor-pointer rounded-full ${shouldDisableNavigation || !submittedSegments.includes(currentSegment?.id) ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"}`}
-                >
-                  <Flag size={18} /> Finish
-                </button>
-              ) : (
-                <button
-                  onClick={handleNextClick}
-                  disabled={!isNextEnabled}
-                  className={`flex items-center cursor-pointer gap-2 text-white px-6 py-3 rounded-full ${!isNextEnabled ? "bg-gray-400" : "bg-[#006b5e] hover:bg-[#005a4f]"}`}
-                >
-                  Next <ArrowRight size={18} />
-                </button>
-              )}
-            </div>
+            <button
+              onClick={confirmRecordAgain}
+              className="flex-1 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 cursor-pointer"
+            >
+              Yes, Record Again
+            </button>
           </div>
-        </footer>
-      </div>
-    </>
+        </div>
+      </Modal>
+
+      {/* AI Evaluation Modal */}
+      {isEvaluating && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-xl shadow-2xl text-center">
+            <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mx-auto mb-4" />
+            <h3 className="text-xl font-bold mb-2">
+              AI Evaluation in Progress
+            </h3>
+            <p className="text-gray-600">Analyzing your pronunciation...</p>
+          </div>
+        </div>
+      )}
+
+      {/* AI Response Modal */}
+      {showAiPopup && aiResponse && (
+        <AiResponseModal
+          open={showAiPopup}
+          data={aiResponse}
+          onContinue={handleAiPopupContinue}
+        />
+      )}
+    </div>
   );
 };
 
-export default PracticeDialogue;
+export default RapidReviewDialogues;

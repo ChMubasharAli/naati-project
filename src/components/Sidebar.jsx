@@ -8,7 +8,6 @@ import { notifications } from "@mantine/notifications";
 import UpdateLoggedInUser from "./UpdateLoggedInUser";
 import { LogOut, MoreVertical, X, User, Brain } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import LanguageSwitcher from "./LanguageSwither";
 
 export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
   const queryClient = useQueryClient();
@@ -69,11 +68,12 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
         >
           {/* Mobile Header */}
           <div className="p-6 border-b border-white/10 shrink-0 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-linear-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                <Brain className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-white text-xl font-bold">PREP SMART</div>
+            <div className="h-12 p-1  flex items-center justify-center  border-white/10">
+              <img
+                src="/logo-img.png"
+                alt="Logo"
+                className="h-full w-full object-contain"
+              />
             </div>
             <button
               onClick={() => setIsOpen(false)}
@@ -85,7 +85,6 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
 
           {/* Mobile Navigation */}
           <nav className="flex-1 px-4 py-2 overflow-y-auto">
-            {logedInUser.role === "user" && <LanguageSwitcher />}
             <ul className="space-y-2 mt-3">
               {menuItems?.map((item) => (
                 <li key={item.name}>
@@ -157,19 +156,12 @@ export function Sidebar({ isOpen, setIsOpen, menuItems, setActiveItem }) {
       {/* Desktop Version */}
       <div className="w-64 bg-slate-900 lg:flex hidden flex-col shadow-2xl relative z-10 border-r border-white/10">
         {/* Desktop Logo */}
-        <div className="p-6 border-b border-white/10 ">
-          <div
-            className={`flex items-center gap-3 ${logedInUser?.role === "user" ? "mb-4" : ""}`}
-          >
-            <div className="w-12 h-12 bg-linear-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Brain className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <div className="text-white text-xl font-bold">PREP SMART</div>
-              <div className="text-slate-400 text-xs">CCL Platform</div>
-            </div>
-          </div>
-          {logedInUser.role === "user" && <LanguageSwitcher />}
+        <div className=" h-24 p-1 w-full flex items-center justify-center border-b border-white/10 ">
+          <img
+            src="/logo-img.png"
+            alt="Logo"
+            className="h-full w-full object-contain"
+          />
         </div>
 
         {/* Desktop Navigation */}

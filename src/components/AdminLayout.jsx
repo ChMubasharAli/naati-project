@@ -6,15 +6,13 @@ import Header from "./Header";
 import {
   Home,
   Languages,
-  Globe,
-  MessageSquare,
-  Layers,
   Users,
   CreditCard,
   ArrowLeftRight,
   MessageCircle,
   ClipboardCheck,
   BookOpen,
+  Brain,
 } from "lucide-react";
 
 export default function AdminLayout() {
@@ -31,6 +29,8 @@ export default function AdminLayout() {
     { name: "Mock Test", icon: ClipboardCheck, href: "mock-test" },
 
     { name: "Vocabulary", icon: BookOpen, href: "vocabulary" },
+
+    { name: "Rapid Reviews", icon: Brain, href: "rapid-reviews" },
 
     { name: "Users", icon: Users, href: "users" },
 

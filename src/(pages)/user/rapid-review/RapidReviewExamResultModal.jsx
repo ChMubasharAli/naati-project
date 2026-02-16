@@ -11,53 +11,36 @@ const AiResponseModal = ({ open, data, onContinue }) => {
 
   if (!open) return null;
 
-  // 🔥 EXACT API RESPONSE STRUCTURE - NO DUMMY FALLBACKS
+  // Extract data from new API response structure
   const responseData = data?.data || {};
-
-  // Core data extraction
-  const segmentAttemptId = responseData.segmentAttempt?.id;
-  const userAudioUrl = responseData.userAudioUrl;
-
-  // Scores - nested objects
   const scores = responseData.scores || {};
-  const segmentAttempt = responseData.segmentAttempt || {};
-  const aiScores = segmentAttempt.aiScores || {};
+  const rapidReviewAttempt = responseData.rapidReviewAttempt || {};
 
-  // Real scores (checking both locations in response)
-  const finalScore = scores.final_score ?? segmentAttempt.finalScore ?? null;
+  // Get all scores (checking both locations in response)
+  const finalScore =
+    scores.final_score ?? rapidReviewAttempt.finalScore ?? null;
   const accuracyScore =
-    scores.accuracy_score ?? segmentAttempt.accuracyScore ?? null;
+    scores.accuracy_score ?? rapidReviewAttempt.accuracyScore ?? null;
   const fluencyScore =
     scores.fluency_pronunciation_score ??
-    segmentAttempt.fluencyPronunciationScore ??
+    rapidReviewAttempt.fluencyPronunciationScore ??
     null;
   const languageScore =
     scores.language_quality_score ??
-    segmentAttempt.languageQualityScore ??
+    rapidReviewAttempt.languageQualityScore ??
     null;
   const deliveryScore =
     scores.delivery_coherence_score ??
-    segmentAttempt.deliveryCoherenceScore ??
-    null;
-  const culturalScore =
-    scores.cultural_context_score ??
-    segmentAttempt.culturalControlScore ??
-    null;
-  const responseScore =
-    scores.response_management_score ??
-    segmentAttempt.responseManagementScore ??
+    rapidReviewAttempt.deliveryCoherenceScore ??
     null;
 
-  // Max score
-  const maxScore = 90; // API doesn't provide max, using standard 90
+  const maxScore = 90;
 
-  // Transcripts - REAL USER TRANSCRIPT ONLY
+  // Transcripts
   const studentTranscript = responseData.transcripts?.studentTranscript || "";
-  const referenceTranscript = responseData.transcripts?.referenceTranscript;
-
-  // Feedback
   const oneLineFeedback =
-    scores.one_line_feedback || segmentAttempt.oneLineFeedback || "";
+    scores.one_line_feedback || rapidReviewAttempt.oneLineFeedback || "";
+  const userAudioUrl = responseData.userAudioUrl;
 
   // Calculate percentage for circle
   const percentage =
@@ -65,25 +48,22 @@ const AiResponseModal = ({ open, data, onContinue }) => {
       ? Math.min(100, Math.max(0, (finalScore / maxScore) * 100))
       : 0;
 
-  // Word highlighting based on actual accuracy
+  // Word highlighting based on accuracy score
   const words = studentTranscript
     ? studentTranscript
         .split(/\s+/)
         .filter((word) => word.length > 0)
         .map((word, index) => {
-          // Color logic based on actual accuracy score
           let color = "gray";
           if (accuracyScore !== null) {
             if (accuracyScore >= 70) color = "green";
             else if (accuracyScore >= 40) color = "orange";
             else color = "red";
           }
-
           return { text: word, color, index };
         })
     : [];
 
-  // Format time
   const formatTime = (time) => {
     if (!time || isNaN(time) || time === Infinity) return "00:00";
     const mins = Math.floor(time / 60);
@@ -93,7 +73,6 @@ const AiResponseModal = ({ open, data, onContinue }) => {
 
   const handlePlay = async () => {
     if (!audioRef.current || !userAudioUrl) return;
-
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -137,7 +116,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
   };
 
   // Loading state
-  if (!data || !responseData.segmentAttempt) {
+  if (!data || !rapidReviewAttempt) {
     return (
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
         <div className="bg-white rounded-xl shadow-2xl p-8 flex flex-col items-center w-full max-w-md mx-4">
@@ -151,12 +130,12 @@ const AiResponseModal = ({ open, data, onContinue }) => {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-hidden">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header - Real ID */}
+        {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-gray-700 font-medium text-base sm:text-lg">
-              {segmentAttemptId
-                ? `#${segmentAttemptId} Score Info`
+              {rapidReviewAttempt.id
+                ? `#${rapidReviewAttempt.id} Score Info`
                 : "Score Info"}
             </span>
           </div>
@@ -206,7 +185,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
               </div>
             </div>
 
-            {/* Score Details - ALL REAL DATA */}
+            {/* Score Details */}
             <div className="flex-1 w-full space-y-2 sm:space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-gray-600 text-xs sm:text-sm">
@@ -306,7 +285,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
             </div>
           </div>
 
-          {/* One Line Feedback - REAL */}
+          {/* One Line Feedback */}
           {oneLineFeedback && (
             <div className="bg-gray-50 rounded-lg p-3 border-l-4 border-teal-500">
               <p className="text-gray-700 text-sm italic">
@@ -315,7 +294,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
             </div>
           )}
 
-          {/* AI Speech Recognition Section */}
+          {/* AI Speech Recognition */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-gray-700 font-medium text-sm sm:text-base">
@@ -326,7 +305,6 @@ const AiResponseModal = ({ open, data, onContinue }) => {
               </span>
             </div>
 
-            {/* Legend */}
             <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
@@ -342,7 +320,6 @@ const AiResponseModal = ({ open, data, onContinue }) => {
               </div>
             </div>
 
-            {/* Colored Text Display - REAL TRANSCRIPT ONLY */}
             <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-100 min-h-[80px]">
               {words.length > 0 ? (
                 <p className="text-base sm:text-lg leading-relaxed flex flex-wrap gap-x-2 gap-y-1">
@@ -375,7 +352,7 @@ const AiResponseModal = ({ open, data, onContinue }) => {
             </div>
           </div>
 
-          {/* Audio Player - REAL USER AUDIO ONLY */}
+          {/* Audio Player */}
           <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-100">
             <audio
               ref={audioRef}
@@ -404,14 +381,9 @@ const AiResponseModal = ({ open, data, onContinue }) => {
                 }`}
               >
                 {isPlaying ? (
-                  <Pause size={16} sm:size={18} fill="currentColor" />
+                  <Pause size={16} fill="currentColor" />
                 ) : (
-                  <Play
-                    size={16}
-                    sm:size={18}
-                    fill="currentColor"
-                    className="ml-0.5"
-                  />
+                  <Play size={16} fill="currentColor" className="ml-0.5" />
                 )}
               </button>
 
@@ -425,14 +397,12 @@ const AiResponseModal = ({ open, data, onContinue }) => {
               </div>
 
               <span className="text-[10px] sm:text-xs text-gray-500 font-mono flex-shrink-0 tabular-nums">
-                {isPlaying
-                  ? `${formatTime(currentTime)}`
-                  : `${formatTime(currentTime)} / ${formatTime(duration)}`}
+                {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             </div>
           </div>
 
-          {/* Detailed Feedback - REAL FROM API */}
+          {/* Detailed Feedback */}
           {(scores.accuracy_feedback ||
             scores.fluency_pronunciation_feedback ||
             scores.language_quality_feedback) && (
@@ -473,10 +443,42 @@ const AiResponseModal = ({ open, data, onContinue }) => {
                   </p>
                 </div>
               )}
+
+              {scores.delivery_coherence_feedback && (
+                <div className="space-y-1">
+                  <p className="text-[10px] sm:text-xs font-semibold text-slate-700">
+                    Delivery & Coherence:
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-slate-600 leading-relaxed">
+                    {scores.delivery_coherence_feedback}
+                  </p>
+                </div>
+              )}
+
+              {scores.cultural_context_feedback && (
+                <div className="space-y-1">
+                  <p className="text-[10px] sm:text-xs font-semibold text-slate-700">
+                    Cultural Context:
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-slate-600 leading-relaxed">
+                    {scores.cultural_context_feedback}
+                  </p>
+                </div>
+              )}
+
+              {scores.response_management_feedback && (
+                <div className="space-y-1">
+                  <p className="text-[10px] sm:text-xs font-semibold text-slate-700">
+                    Response Management:
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-slate-600 leading-relaxed">
+                    {scores.response_management_feedback}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Total Raw Score if different from final */}
           {scores.total_raw_score !== undefined &&
             scores.total_raw_score !== finalScore && (
               <div className="flex justify-between items-center text-xs text-gray-500 px-1">
@@ -492,8 +494,8 @@ const AiResponseModal = ({ open, data, onContinue }) => {
             onClick={onContinue}
             className="w-full py-2.5 sm:py-3 cursor-pointer bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-semibold rounded-full transition-colors flex items-center justify-center gap-2 text-sm sm:text-base active:scale-[0.98] transform"
           >
-            Next
-            <ChevronRight size={18} sm:size={20} />
+            Continue
+            <ChevronRight size={18} />
           </button>
         </div>
       </div>

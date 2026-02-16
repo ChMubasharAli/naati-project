@@ -24,9 +24,7 @@ import Contact from "./components/contact-us/Contact";
 import ScrollToTop from "./components/ScrollToTop";
 import Courses from "./components/subscriptions/Subscriptions";
 import PracticeDialogue from "./(pages)/user/PracticeDialogue";
-import ShowAllDomans from "./(pages)/user/ShowAllDialogues";
 import ShowAllDialogues from "./(pages)/user/ShowAllDialogues";
-import RapidReview from "./(pages)/user/rapid-review/RapidReview";
 import ShowAllRapidDialogues from "./(pages)/user/rapid-review/ShowAllRapidDialogues";
 import PaymentSuccess from "./components/stripe-pages/PaymentSuccess";
 import PaymentFailure from "./components/stripe-pages/PaymentFailure";
@@ -41,6 +39,8 @@ import LanguageSwitcher from "./components/LanguageSwither";
 import UserSubscriptions from "./(pages)/user/UserSubscriptions";
 import UserVocabulary from "./(pages)/user/UserVocabulary";
 import PracticeRapidReview from "./(pages)/user/rapid-review/RapidReview";
+import Settings from "./(pages)/user/Settings";
+import RapidReviewsManagement from "./(pages)/admin/RapidReviewsManagement";
 
 export default function App() {
   return (
@@ -123,6 +123,7 @@ export default function App() {
             <Route path="languages" element={<Languages />} />
             <Route path="vocabulary" element={<VocabularyManagement />} />
             <Route path="mock-test" element={<MockTestManagement />} />
+            <Route path="rapid-reviews" element={<RapidReviewsManagement />} />
             <Route path="domains" element={<Domains />} />
             <Route path="dialogues" element={<Dialogues />} />
             <Route path="segments" element={<Segments />} />
@@ -147,6 +148,7 @@ export default function App() {
 
             <Route path="subscriptions" element={<Courses />} />
             <Route path="user-subscriptions" element={<UserSubscriptions />} />
+            <Route path="user-settings" element={<Settings />} />
           </Route>
         </Route>
 

@@ -100,49 +100,43 @@ const LanguageSwitcher = () => {
   );
 
   return (
-    <div ref={dropdownRef} className="!w-full !relative">
-      {/* Label - Sidebar ke emerald theme se match */}
-      <p className="!text-emerald-400 !w-full !text-left !text-xs !font-medium !mb-2 !uppercase !tracking-wider">
+    <div ref={dropdownRef} className="w-full relative">
+      {/* Label - Settings.jsx ke style se match */}
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
         Switch Language
       </p>
 
-      {/* Trigger Button - Exact sidebar nav item styling */}
+      {/* Trigger Button - Settings.jsx card styling se match */}
       <button
         onClick={() => !isLoading && setIsOpen(!isOpen)}
         disabled={isLoading}
         className={`
-          !w-full !flex !items-center !justify-between !px-4 !py-3 
-          !rounded-xl !transition-all !duration-200 !group
-          !border !border-white/10
+          w-full flex items-center justify-between px-4 py-3 
+          rounded-xl transition-all duration-200 group
+          border border-gray-200
           ${
             isOpen
-              ? "!bg-linear-to-r !from-emerald-500/20 !to-teal-500/20 !text-white !border-emerald-500/30 !shadow-lg !shadow-emerald-500/10"
-              : "!bg-white/5 !text-slate-400 hover:!bg-white/10 hover:!text-white"
+              ? "bg-gray-50 border-emerald-500/30 shadow-md"
+              : "bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
           }
-          ${isLoading ? "!cursor-not-allowed !opacity-60" : "!cursor-pointer"}
+          ${isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"}
         `}
       >
-        <div className="!flex !items-center !gap-3 !overflow-hidden">
-          {/* Globe Icon - Sidebar icons se match */}
-          <div className="!shrink-0">
+        <div className="flex items-center gap-3 overflow-hidden">
+          {/* Globe Icon - Settings.jsx ke icon style se match */}
+          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center flex-shrink-0">
             {isLoading ? (
-              <Loader2 size={18} className="!text-emerald-400 !animate-spin" />
+              <Loader2 size={18} className="text-white animate-spin" />
             ) : (
-              <Globe
-                size={18}
-                className={`
-                  !transition-colors !duration-200
-                  ${isOpen ? "!text-emerald-400" : "!text-slate-500 group-hover:!text-emerald-400"}
-                `}
-              />
+              <Globe size={18} className="text-white" />
             )}
           </div>
 
           {/* Selected Text */}
           <span
             className={`
-            !font-medium !truncate !text-sm
-            ${isOpen ? "!text-white !font-semibold" : "!text-slate-300 group-hover:!text-white"}
+            font-medium truncate text-base
+            ${isOpen ? "text-gray-900 font-semibold" : "text-gray-900"}
           `}
           >
             {isLoading
@@ -155,30 +149,30 @@ const LanguageSwitcher = () => {
 
         {/* Dropdown Arrow */}
         <ChevronDown
-          size={16}
+          size={20}
           className={`
-            !shrink-0 !ml-2 !transition-transform !duration-200
-            ${isOpen ? "!text-emerald-400 !rotate-180" : "!text-slate-500 group-hover:!text-emerald-400"}
+            shrink-0 ml-2 transition-transform duration-200 text-gray-500
+            ${isOpen ? "rotate-180 text-emerald-600" : "group-hover:text-emerald-600"}
           `}
         />
       </button>
 
-      {/* Dropdown Menu - Sidebar ke modal/dropdown styling se match */}
+      {/* Dropdown Menu - Settings.jsx ke card styling se match */}
       {isOpen && (
         <div
           className="
-          !absolute !top-full !left-0 !right-0 !mt-2 !z-50
-          !bg-slate-900 !border !border-white/10 !rounded-xl
-          !shadow-2xl !shadow-black/50
-          !overflow-hidden
+          absolute top-full left-0 right-0 mt-2 z-50
+          bg-white border border-gray-200 rounded-2xl
+          shadow-lg
+          overflow-hidden
         "
         >
           {/* Search Input - Dropdown ke andar */}
-          <div className="!p-3 !border-b !border-white/10">
-            <div className="!relative">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="relative">
               <Globe
-                size={14}
-                className="!absolute !left-3 !top-1/2 !-translate-y-1/2 !text-slate-500"
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
               />
               <input
                 type="text"
@@ -186,11 +180,11 @@ const LanguageSwitcher = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="
-                  !w-full !pl-9 !pr-3 !py-2 !rounded-lg
-                  !bg-slate-800 !border !border-white/10
-                  !text-white !text-sm !placeholder-slate-500
-                  focus:!outline-none focus:!border-emerald-500/50 focus:!ring-1 focus:!ring-emerald-500/20
-                  !transition-all !duration-200
+                  w-full pl-10 pr-4 py-2.5 rounded-xl
+                  bg-white border border-gray-200
+                  text-gray-900 text-sm placeholder-gray-400
+                  focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
+                  transition-all duration-200
                 "
                 autoFocus
               />
@@ -198,9 +192,9 @@ const LanguageSwitcher = () => {
           </div>
 
           {/* Options List */}
-          <div className="!max-h-[240px] !overflow-y-auto !py-1">
+          <div className="max-h-[240px] overflow-y-auto py-2">
             {filteredOptions.length === 0 ? (
-              <div className="!px-4 !py-3 !text-slate-500 !text-sm !text-center">
+              <div className="px-4 py-4 text-gray-500 text-sm text-center">
                 No language found
               </div>
             ) : (
@@ -211,32 +205,34 @@ const LanguageSwitcher = () => {
                     key={option.value}
                     onClick={() => handleLanguageChange(option.value)}
                     className={`
-                      !w-full !flex !items-center cursor-pointer! !justify-between !px-4 !py-3
-                      !transition-all !duration-200
+                      w-full flex items-center justify-between px-4 py-3
+                      transition-all duration-200
                       ${
                         isSelected
-                          ? "!bg-linear-to-r !from-emerald-500/20 !to-teal-500/20 !text-white"
-                          : "!text-slate-400 hover:!bg-white/5 hover:!text-white"
+                          ? "bg-emerald-50 text-emerald-900 border-l-4 border-emerald-500"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                       }
                     `}
                   >
-                    <div className="!flex !flex-col !items-start !gap-0.5">
+                    <div className="flex flex-col items-start gap-0.5">
                       <span
                         className={`
-                        !text-sm !font-medium
-                        ${isSelected ? "!text-white !font-semibold" : ""}
+                        text-sm font-medium
+                        ${isSelected ? "font-semibold text-emerald-900" : ""}
                       `}
                       >
                         {option.label}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {option.code}
                       </span>
                     </div>
 
                     {/* Checkmark for selected */}
                     {isSelected && (
-                      <Check
-                        size={16}
-                        className="!text-emerald-400 !shrink-0"
-                      />
+                      <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <Check size={14} className="text-emerald-600" />
+                      </div>
                     )}
                   </button>
                 );

@@ -126,7 +126,7 @@ const ShowAllDialogues = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200  max-h-[calc(100vh-64px)] lg:max-h-screen h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -144,9 +144,6 @@ const ShowAllDialogues = () => {
               <div className="flex-1">
                 <div className="text-sm text-amber-800 mb-1">
                   <span className="font-semibold">Trial Status:</span>{" "}
-                  <span className="ml-2 text-red-600">
-                    (No trial attempts left)
-                  </span>
                 </div>
 
                 {/* Message based on trial status */}
@@ -226,7 +223,7 @@ const ShowAllDialogues = () => {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 flex-1">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -303,7 +300,7 @@ const ShowAllDialogues = () => {
                         <div className="text-sm font-semibold text-gray-900">
                           {dialogue.title}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 hidden lg:block">
                           {dialogue.description}
                         </div>
                       </div>

@@ -11,6 +11,7 @@ import {
   Home,
   Layers,
   MessageSquare,
+  Settings,
   Zap,
 } from "lucide-react";
 
@@ -34,9 +35,9 @@ export default function UserLayout() {
     { name: "Buy Subscriptions", icon: CreditCard, href: "subscriptions" },
 
     {
-      name: "User Subscriptions",
-      icon: Layers,
-      href: "user-subscriptions",
+      name: "Settings",
+      icon: Settings,
+      href: "user-settings",
     },
   ];
 

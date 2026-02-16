@@ -27,7 +27,7 @@ import { useAuth } from "../../context/AuthContext";
 import AudioWaveRecording from "../../components/PlayAndRecordSection";
 import { useQuery, useMutation } from "@tanstack/react-query";
 
-const TOTAL_EXAM_TIME = 20 * 60; // 20 minutes in seconds
+const TOTAL_EXAM_TIME = 10 * 60; // 10 minutes in seconds
 
 const PracticeDialogue = () => {
   // State variables
@@ -84,7 +84,7 @@ const PracticeDialogue = () => {
   const [completedSeconds, setCompletedSeconds] = useState(0);
   const [timerActive, setTimerActive] = useState(true);
   const [timeExpired, setTimeExpired] = useState(false);
-  const [displayTime, setDisplayTime] = useState("20:00");
+  const [displayTime, setDisplayTime] = useState("10:00");
 
   // Result modal
   const [opened, { open, close }] = useDisclosure(false);
@@ -1213,7 +1213,7 @@ const PracticeDialogue = () => {
           <div className="flex items-center mb-2 sm:mb-0">
             <div className="ml-2 leading-tight">
               <div className="text-lg sm:text-xl font-bold text-[#006b5e]  tracking-normal">
-                assessmentQ
+                PREP SMART
               </div>
             </div>
           </div>
